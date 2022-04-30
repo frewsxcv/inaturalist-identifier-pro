@@ -9,4 +9,5 @@ edition = "2021"
 # inaturalist = "0.1.0"
 geo-types = "0.7"
 inaturalist = { path = "../rust-inaturalist/crate" }
+lazy_static = "1"
 tokio = { version = "1", features = ["full"] }

@@ -2,6 +2,14 @@ use std::{error, thread, time};
 
 const PLANTAE_ID: u32 = 47126;
 
+lazy_static::lazy_static! {
+    static ref INATURALIST_REQUEST_CONFIG: inaturalist::apis::configuration::Configuration =
+        inaturalist::apis::configuration::Configuration {
+            base_path: String::from("https://api.inaturalist.org/v1"),
+            ..Default::default()
+        };
+    }
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
     let sw = geo_types::coord! { x: -74.046000, y: 40.600007 };
@@ -29,11 +37,6 @@ async fn fetch(
     inaturalist::models::ObservationsResponse,
     inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
 > {
-    let configuration = inaturalist::apis::configuration::Configuration {
-        base_path: "https://api.inaturalist.org/v1".into(),
-        ..Default::default()
-    };
-
     let params = inaturalist::apis::observations_api::ObservationsGetParams {
         swlat: Some(rect.min().y),
         swlng: Some(rect.min().x),
@@ -46,7 +49,7 @@ async fn fetch(
         ..Default::default()
     };
 
-    inaturalist::apis::observations_api::observations_get(&configuration, params).await
+    inaturalist::apis::observations_api::observations_get(&INATURALIST_REQUEST_CONFIG, params).await
 }
 
 fn grid_iter(
