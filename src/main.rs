@@ -1,42 +1,52 @@
+use std::{error, thread, time};
+
 const PLANTAE_ID: u32 = 47126;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn error::Error>> {
+    let sw = geo_types::coord! { x: -74.046000, y: 40.600007 };
+    let ne = geo_types::coord! { x: -73.9389741, y: 40.6942535 };
+    let rect = geo_types::Rect::new(sw, ne);
+
+    let divisions = 2;
+
+    for rect in grid_iter(rect, divisions) {
+        let observations = fetch(rect).await.unwrap();
+
+        println!("{:#?}", observations.results);
+
+        thread::sleep(time::Duration::from_secs(1));
+    }
+
+    // todo: output geojson grid
+
+    Ok(())
+}
+
+async fn fetch(
+    rect: geo_types::Rect<f64>,
+) -> Result<
+    inaturalist::models::ObservationsResponse,
+    inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
+> {
     let configuration = inaturalist::apis::configuration::Configuration {
         base_path: "https://api.inaturalist.org/v1".into(),
         ..Default::default()
     };
 
-    let sw = geo_types::coord! { x: -74.046000, y: 40.600007 };
-    let ne = geo_types::coord! { x: -73.9389741, y: 40.6942535 };
-    let rect = geo_types::Rect::new(sw, ne);
+    let params = inaturalist::apis::observations_api::ObservationsGetParams {
+        swlat: Some(rect.min().y),
+        swlng: Some(rect.min().x),
+        nelat: Some(rect.max().y),
+        nelng: Some(rect.max().x),
+        quality_grade: Some(String::from("research")),
+        taxon_id: Some(vec![PLANTAE_ID.to_string()]),
+        per_page: Some(200.to_string()),
+        // native: Some(true),
+        ..Default::default()
+    };
 
-    let divisions = 10;
-
-    for rect in grid_iter(rect, divisions) {
-        let params = inaturalist::apis::observations_api::ObservationsGetParams {
-            swlat: Some(rect.min().y),
-            swlng: Some(rect.min().x),
-            nelat: Some(rect.max().y),
-            nelng: Some(rect.max().x),
-            quality_grade: Some(String::from("research")),
-            taxon_id: Some(vec![PLANTAE_ID.to_string()]),
-            per_page: Some(200.to_string()),
-            // native: Some(true),
-            ..Default::default()
-        };
-
-        let observations =
-            inaturalist::apis::observations_api::observations_get(&configuration, params)
-                .await
-                .unwrap();
-
-        println!("{:#?}", observations.results);
-
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-
-    // todo: output geojson grid
+    inaturalist::apis::observations_api::observations_get(&configuration, params).await
 }
 
 fn grid_iter(
