@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let divisions = 2;
 
     for rect in grid_iter(rect, divisions) {
-        let observations = fetch(rect).await.unwrap();
+        let observations = fetch(rect).await?;
 
         println!("{:#?}", observations.results);
 
