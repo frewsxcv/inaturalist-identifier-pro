@@ -1,4 +1,4 @@
-use std::{error, thread, time};
+use std::{collections, error, thread, time};
 
 const PLANTAE_ID: u32 = 47126;
 
@@ -12,23 +12,51 @@ lazy_static::lazy_static! {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
-    let sw = geo_types::coord! { x: -74.046000, y: 40.600007 };
-    let ne = geo_types::coord! { x: -73.9389741, y: 40.6942535 };
+    let sw = geo_types::coord! { x: -74.046000f64, y: 40.600007f64 };
+    let ne = geo_types::coord! { x: -73.9389741f64, y: 40.6942535f64 };
     let rect = geo_types::Rect::new(sw, ne);
 
     let divisions = 2;
 
+    let mut entries = vec![];
+
     for rect in grid_iter(rect, divisions) {
         let observations = fetch(rect).await?;
 
-        println!("{:#?}", observations.results);
+        entries.push((rect, observations.results.len()));
 
         thread::sleep(time::Duration::from_secs(1));
     }
 
-    // todo: output geojson grid
+    println!("{}", to_geojson(entries));
 
     Ok(())
+}
+
+type Entry = (geo_types::Rect<f64>, usize);
+type Entries = Vec<Entry>;
+
+fn to_geojson(entries: Entries) -> geojson::FeatureCollection {
+    let mut features = vec![];
+    for entry in entries {
+        let value = geojson::Value::try_from(&entry.0.to_polygon()).unwrap();
+        let mut properties = serde_json::Map::new();
+        properties.insert("amount".into(), entry.1.into());
+        features.push(
+            geojson::Feature {
+                geometry: Some(value.into()),
+                properties: Some(properties.into()),
+                bbox: None,
+                id: None,
+                foreign_members: None,
+            }
+        )
+    }
+    geojson::FeatureCollection {
+        features,
+        bbox: None,
+        foreign_members: None,
+    }
 }
 
 async fn fetch(
