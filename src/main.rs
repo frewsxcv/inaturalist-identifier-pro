@@ -23,7 +23,9 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     for rect in grid_iter(rect, divisions) {
         let observations = fetch(rect).await?;
 
-        entries.push((rect, observations.results.len()));
+        entries.push(
+            (rect, observations_species_count(&observations.results))
+        );
 
         thread::sleep(time::Duration::from_secs(1));
     }
@@ -36,6 +38,15 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 type Entry = (geo_types::Rect<f64>, usize);
 type Entries = Vec<Entry>;
 
+fn observations_species_count(observations: &[inaturalist::models::Observation]) -> usize {
+    observations
+        .iter()
+        .filter_map(|observation| observation.taxon.as_ref())
+        .map(|taxon| taxon.id)
+        .collect::<collections::HashSet<_>>()
+        .len()
+}
+
 fn to_geojson(entries: Entries) -> geojson::FeatureCollection {
     let mut features = vec![];
     for entry in entries {
@@ -45,7 +56,7 @@ fn to_geojson(entries: Entries) -> geojson::FeatureCollection {
         features.push(
             geojson::Feature {
                 geometry: Some(value.into()),
-                properties: Some(properties.into()),
+                properties: Some(properties),
                 bbox: None,
                 id: None,
                 foreign_members: None,
