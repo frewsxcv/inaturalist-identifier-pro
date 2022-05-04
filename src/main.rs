@@ -1,3 +1,4 @@
+use geo::algorithm::contains::Contains;
 use std::{collections, error, thread, time};
 
 const PLANTAE_ID: u32 = 47126;
@@ -12,21 +13,33 @@ static ref INATURALIST_REQUEST_CONFIG: inaturalist::apis::configuration::Configu
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
-    let sw = geo_types::coord! { x: -74.046000f64, y: 40.567 };
-    let ne = geo_types::coord! { x: -73.9389741f64, y: 40.6942535f64 };
-    let rect = geo_types::Rect::new(sw, ne);
+    let sw = geo::coord! { x: -74.046000f64, y: 40.567 };
+    let ne = geo::coord! { x: -73.9389741f64, y: 40.6942535f64 };
+    let rect = geo::Rect::new(sw, ne);
 
     let divisions = 32;
 
     let mut entries = vec![];
 
+    let observations = fetch(rect).await?;
+
     for (i, rect) in grid_iter(rect, divisions).enumerate() {
         println!("Building new tile ({} / {})", i, divisions * divisions);
-        let observations = fetch(rect).await?;
+        let mut observations_in_tile = vec![];
 
-        entries.push((rect, observations_species_count(&observations)));
+        for observation in &observations {
+            if let Some(c) = observation
+                .geojson
+                .as_ref()
+                .and_then(|g| g.coordinates.as_ref())
+            {
+                if rect.contains(&geo::point! { x: c[0], y: c[1] }) {
+                    observations_in_tile.push(observation.clone());
+                }
+            }
+        }
 
-        thread::sleep(time::Duration::from_secs(1));
+        entries.push((rect, observations_species_count(&observations_in_tile)));
     }
 
     println!("{}", to_geojson(entries));
@@ -34,7 +47,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     Ok(())
 }
 
-type Entry = (geo_types::Rect<f64>, usize);
+type Entry = (geo::Rect<f64>, usize);
 type Entries = Vec<Entry>;
 
 fn observations_species_count(observations: &[inaturalist::models::Observation]) -> usize {
@@ -68,7 +81,7 @@ fn to_geojson(entries: Entries) -> geojson::FeatureCollection {
 }
 
 async fn fetch(
-    rect: geo_types::Rect<f64>,
+    rect: geo::Rect<f64>,
 ) -> Result<
     Vec<inaturalist::models::Observation>,
     inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
@@ -86,15 +99,26 @@ async fn fetch(
 
         all.append(&mut response.results);
 
-        let last_page: u32 = (1 + response.total_results.unwrap() / response.per_page.unwrap())
-            .try_into()
-            .unwrap();
+        let per_page = response.per_page.unwrap() as u32;
+        let total_results = response.total_results.unwrap() as u32;
+
+        let last_page: u32 = 1 + total_results / per_page;
+
+        thread::sleep(time::Duration::from_secs(1));
 
         if page == last_page {
-            println!("No more pages (total results: {})", response.total_results.unwrap());
+            println!(
+                "No more pages (total results: {})",
+                response.total_results.unwrap()
+            );
             break;
         } else {
-            println!("New page");
+            println!(
+                "New page ({} / {} | {})",
+                per_page * page,
+                total_results,
+                (per_page as f32 * page as f32) / (total_results as f32)
+            );
         }
 
         page += 1;
@@ -104,7 +128,7 @@ async fn fetch(
 }
 
 fn build_params(
-    rect: geo_types::Rect<f64>,
+    rect: geo::Rect<f64>,
     page: u32,
 ) -> inaturalist::apis::observations_api::ObservationsGetParams {
     inaturalist::apis::observations_api::ObservationsGetParams {
@@ -112,7 +136,8 @@ fn build_params(
         swlng: Some(rect.min().x),
         nelat: Some(rect.max().y),
         nelng: Some(rect.max().x),
-        quality_grade: Some(String::from("research")),
+        // quality_grade: Some(String::from("research")),
+        captive: Some(false),
         taxon_id: Some(vec![PLANTAE_ID.to_string()]),
         per_page: Some(200.to_string()),
         native: Some(true),
@@ -121,10 +146,7 @@ fn build_params(
     }
 }
 
-fn grid_iter(
-    rect: geo_types::Rect<f64>,
-    divisions: u32,
-) -> impl Iterator<Item = geo_types::Rect<f64>> {
+fn grid_iter(rect: geo::Rect<f64>, divisions: u32) -> impl Iterator<Item = geo::Rect<f64>> {
     let grid_width = rect.width() / (divisions as f64);
     let grid_height = rect.height() / (divisions as f64);
 
@@ -135,9 +157,9 @@ fn grid_iter(
         let sw_x = rect.min().x + (grid_width * (x_offset as f64));
         let sw_y = rect.min().y + (grid_height * (y_offset as f64));
 
-        geo_types::Rect::new(
-            geo_types::coord! { x: sw_x, y: sw_y, },
-            geo_types::coord! { x: sw_x + grid_width, y: sw_y + grid_height, },
+        geo::Rect::new(
+            geo::coord! { x: sw_x, y: sw_y, },
+            geo::coord! { x: sw_x + grid_width, y: sw_y + grid_height, },
         )
     })
 }
