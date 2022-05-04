@@ -25,7 +25,6 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     // let sw = geo::coord! { x: -74.046000f64, y: 40.567 };
     // let ne = geo::coord! { x: -73.9389741f64, y: 40.6942535f64 };
 
-
     let sw = geo::coord! { x: -74.258019, y: 40.490742 };
     let ne = geo::coord! { x: -73.555615, y: 41.017433 };
 
@@ -35,10 +34,12 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let mut entries = vec![];
 
-    let rects = subdivide_rect(rect).await?;
+    let subdivided_rects = subdivide_rect(rect).await?;
+    let num_rects = subdivided_rects.len();
     let mut observations = vec![];
-    for rect in rects {
-        observations.append(&mut fetch(rect).await?);
+    for (i, s) in subdivided_rects.into_iter().enumerate() {
+        println!("Fetch tile ({} / {})", i, num_rects);
+        observations.append(&mut fetch(s.rect).await?);
     }
 
     for (i, rect) in grid_iter(rect, divisions).enumerate() {
@@ -68,6 +69,11 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     Ok(())
 }
 
+struct SubdividedRect {
+    rect: geo::Rect<f64>,
+    total: i32,
+}
+
 type Entry = (geo::Rect<f64>, usize);
 type Entries = Vec<Entry>;
 
@@ -78,7 +84,7 @@ const MAX_RESULTS: i32 = 10_000;
 async fn subdivide_rect(
     rect: geo::Rect<f64>,
 ) -> Result<
-    Vec<geo::Rect<f64>>,
+    Vec<SubdividedRect>,
     inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
 > {
     INATURALIST_RATE_LIMITER.until_ready().await;
@@ -90,13 +96,17 @@ async fn subdivide_rect(
 
     Ok(if response.total_results.unwrap() < MAX_RESULTS {
         println!("Rect is sufficient");
-        vec![rect]
+        vec![SubdividedRect {
+            rect,
+            total: response.total_results.unwrap(),
+        }]
     } else {
         println!("Splitting rect (total_results: {})", response.total_results.unwrap());
         let (rect1, rect2) = split_rect(rect);
-        let mut rects = subdivide_rect(rect1).await?;
-        rects.append(&mut subdivide_rect(rect2).await?);
-        rects
+        let mut s1 = subdivide_rect(rect1).await?;
+        let mut s2 = subdivide_rect(rect2).await?;
+        s1.append(&mut s2);
+        s1
     })
 }
 
