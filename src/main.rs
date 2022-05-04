@@ -84,7 +84,7 @@ async fn fetch(
         quality_grade: Some(String::from("research")),
         taxon_id: Some(vec![PLANTAE_ID.to_string()]),
         per_page: Some(200.to_string()),
-        // native: Some(true),
+        native: Some(true),
         ..Default::default()
     };
 
