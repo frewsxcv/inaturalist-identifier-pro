@@ -1,5 +1,5 @@
 use geo::algorithm::contains::Contains;
-use std::{collections, error, thread, time};
+use std::{collections, error, fs, thread, time};
 
 const PLANTAE_ID: u32 = 47126;
 
@@ -13,8 +13,13 @@ static ref INATURALIST_REQUEST_CONFIG: inaturalist::apis::configuration::Configu
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
-    let sw = geo::coord! { x: -74.046000f64, y: 40.567 };
-    let ne = geo::coord! { x: -73.9389741f64, y: 40.6942535f64 };
+    // Brooklyn
+    // let sw = geo::coord! { x: -74.046000f64, y: 40.567 };
+    // let ne = geo::coord! { x: -73.9389741f64, y: 40.6942535f64 };
+
+    let sw = geo::coord! { x: -74.258019, y: 40.490742 };
+    let ne = geo::coord! { x: -73.555615, y: 41.017433 };
+
     let rect = geo::Rect::new(sw, ne);
 
     let divisions = 32;
@@ -42,7 +47,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         entries.push((rect, observations_species_count(&observations_in_tile)));
     }
 
-    println!("{}", to_geojson(entries));
+    fs::write("/Users/coreyf/tmp/output.geojson", to_geojson(entries).to_string())?;
 
     Ok(())
 }
