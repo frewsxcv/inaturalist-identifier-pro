@@ -197,10 +197,9 @@ async fn fetch(
     inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
 > {
     let mut all = vec![];
-    let mut page = 1;
     let per_page = 200;
 
-    loop {
+    for page in 1.. {
         let mut response = {
             let mut request_cache = INATURALIST_REQUEST_CACHE.lock().await;
             if let Some(response) = request_cache.get(rect, per_page, page) {
@@ -240,8 +239,6 @@ async fn fetch(
                 (per_page as f32 * page as f32) / (total_results as f32)
             );
         }
-
-        page += 1;
     }
 
     Ok(all)
