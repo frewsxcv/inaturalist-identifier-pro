@@ -1,6 +1,7 @@
 use geo::algorithm::contains::Contains;
 use std::hash::{Hash, Hasher};
-use std::{collections, error, fs};
+use std::{collections, error, fs, io};
+use std::io::Write;
 
 const PLANTAE_ID: u32 = 47126;
 
@@ -208,13 +209,16 @@ async fn fetch(
                 println!("Fetched observations from cache");
                 response.clone()
             } else {
-                println!("Fetching observations");
+                print!("Fetching observations...");
+                let _ = io::stdout().flush();
                 INATURALIST_RATE_LIMITER.until_ready().await;
                 let response = inaturalist::apis::observations_api::observations_get(
                     &INATURALIST_REQUEST_CONFIG,
                     build_params(rect, page, per_page),
                 )
                 .await?;
+                println!("done");
+                let _ = io::stdout().flush();
                 request_cache.insert(rect, per_page, page, response.clone());
                 response
             }
@@ -284,8 +288,10 @@ impl RequestCache {
             .insert(hash_request_info(rect, per_page, page), response);
         let file = fs::File::create("/tmp/inaturalist-request-cache.json").unwrap();
         print!("Writing cache...");
+        let _ = io::stdout().flush();
         serde_json::to_writer(file, &self.0).unwrap();
         println!("done");
+        let _ = io::stdout().flush();
     }
 }
 
