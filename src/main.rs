@@ -1,6 +1,6 @@
 use geo::algorithm::contains::Contains;
 use std::hash::{Hash, Hasher};
-use std::{collections, error, fs, thread, time};
+use std::{collections, error, fs};
 
 const PLANTAE_ID: u32 = 47126;
 
@@ -284,7 +284,9 @@ impl RequestCache {
         self.0
             .insert(hash_request_info(rect, per_page, page), response);
         let file = fs::File::create("/tmp/inaturalist-request-cache.json").unwrap();
+        print!("Writing cache...");
         serde_json::to_writer(file, &self.0).unwrap();
+        println!("done");
     }
 }
 
