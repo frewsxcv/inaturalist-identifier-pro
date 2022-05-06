@@ -1,6 +1,6 @@
 use geo::algorithm::contains::Contains;
 use std::hash::{Hash, Hasher};
-use std::{collections, error, fs, io};
+use std::{collections, error, fs, io, thread, time};
 use std::io::Write;
 
 const PLANTAE_ID: u32 = 47126;
@@ -46,6 +46,24 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let divisions = 32;
 
     let mut entries = vec![];
+
+    tokio::spawn(async {
+        loop {
+            thread::sleep(time::Duration::from_secs(60));
+
+            let cache_contents = {
+                let cache = INATURALIST_REQUEST_CACHE.lock().await;
+                cache.0.clone()
+            };
+
+            let file = fs::File::create("/tmp/inaturalist-request-cache.json").unwrap();
+            print!("Writing cache...");
+            let _ = io::stdout().flush();
+            serde_json::to_writer(file, &cache_contents).unwrap();
+            println!("done");
+            let _ = io::stdout().flush();
+        }
+    });
 
     let subdivided_rects = subdivide_rect(rect).await?;
     let num_rects = subdivided_rects.len();
@@ -286,12 +304,6 @@ impl RequestCache {
     ) {
         self.0
             .insert(hash_request_info(rect, per_page, page), response);
-        let file = fs::File::create("/tmp/inaturalist-request-cache.json").unwrap();
-        print!("Writing cache...");
-        let _ = io::stdout().flush();
-        serde_json::to_writer(file, &self.0).unwrap();
-        println!("done");
-        let _ = io::stdout().flush();
     }
 }
 
