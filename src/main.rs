@@ -308,7 +308,7 @@ fn build_params(
         swlng: Some(*rect.min().x),
         nelat: Some(*rect.max().y),
         nelng: Some(*rect.max().x),
-        // quality_grade: Some(String::from("research")),
+        quality_grade: Some(String::from("research")),
         captive: Some(false),
         taxon_id: Some(vec![PLANTAE_ID.to_string()]),
         per_page: Some(per_page.to_string()),
