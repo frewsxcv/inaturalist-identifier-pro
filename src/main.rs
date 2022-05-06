@@ -89,6 +89,8 @@ type Entries = Vec<Entry>;
 /// iNaturalist will not let us page past 10,000 results.
 const MAX_RESULTS: i32 = 10_000;
 
+const MAX_RESULTS_PER_PAGE: u32 = 200;
+
 #[async_recursion::async_recursion]
 async fn subdivide_rect(
     rect: Rect,
@@ -197,7 +199,7 @@ async fn fetch(
     inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
 > {
     let mut all = vec![];
-    let per_page = 200;
+    let per_page = MAX_RESULTS_PER_PAGE;
 
     for page in 1.. {
         let mut response = {
