@@ -28,6 +28,8 @@ lazy_static::lazy_static! {
 // TODO: read and write from request cache
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
+    tracing_subscriber::fmt::init();
+
     // Brooklyn
     // let sw = geo::coord! { x: -74.046000f64, y: 40.567 };
     // let ne = geo::coord! { x: -73.9389741f64, y: 40.6942535f64 };
@@ -57,10 +59,10 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             };
 
             let file = fs::File::create("/tmp/inaturalist-request-cache.json").unwrap();
-            print!("Writing cache...");
+            tracing::info!("Writing cache...");
             let _ = io::stdout().flush();
             serde_json::to_writer(file, &cache_contents).unwrap();
-            println!("done");
+            tracing::info!("done");
             let _ = io::stdout().flush();
         }
     });
@@ -69,12 +71,12 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let num_rects = subdivided_rects.len();
     let mut observations = vec![];
     for (i, s) in subdivided_rects.into_iter().enumerate() {
-        println!("Fetch tile ({} / {})", i, num_rects);
+        tracing::info!("Fetch tile ({} / {})", i, num_rects);
         observations.append(&mut fetch(s.0).await?);
     }
 
     for (i, rect) in grid_iter(rect, divisions).enumerate() {
-        println!("Building new tile ({} / {})", i, divisions * divisions);
+        tracing::info!("Building new tile ({} / {})", i, divisions * divisions);
         let mut observations_in_tile = vec![];
 
         for observation in &observations {
@@ -122,10 +124,10 @@ async fn subdivide_rect(
     let response = {
         let mut request_cache = INATURALIST_REQUEST_CACHE.lock().await;
         if let Some(response) = request_cache.get(rect, per_page, page) {
-            println!("Found in cache");
+            tracing::info!("Found in cache");
             response.clone()
         } else {
-            println!("Not found in cache");
+            tracing::info!("Not found in cache");
             INATURALIST_RATE_LIMITER.until_ready().await;
             let response = inaturalist::apis::observations_api::observations_get(
                 &INATURALIST_REQUEST_CONFIG,
@@ -138,10 +140,10 @@ async fn subdivide_rect(
     };
 
     Ok(if response.total_results.unwrap() < MAX_RESULTS {
-        println!("Rect is sufficient");
+        tracing::info!("Rect is sufficient");
         vec![SubdividedRect(rect)]
     } else {
-        println!(
+        tracing::info!(
             "Splitting rect (total_results: {})",
             response.total_results.unwrap()
         );
@@ -224,10 +226,10 @@ async fn fetch(
         let mut response = {
             let mut request_cache = INATURALIST_REQUEST_CACHE.lock().await;
             if let Some(response) = request_cache.get(rect, per_page, page) {
-                println!("Fetched observations from cache");
+                tracing::info!("Fetched observations from cache");
                 response.clone()
             } else {
-                print!("Fetching observations...");
+                tracing::info!("Fetching observations...");
                 let _ = io::stdout().flush();
                 INATURALIST_RATE_LIMITER.until_ready().await;
                 let response = inaturalist::apis::observations_api::observations_get(
@@ -235,7 +237,7 @@ async fn fetch(
                     build_params(rect, page, per_page),
                 )
                 .await?;
-                println!("done");
+                tracing::info!("done");
                 let _ = io::stdout().flush();
                 request_cache.insert(rect, per_page, page, response.clone());
                 response
@@ -250,13 +252,13 @@ async fn fetch(
         let last_page: u32 = 1 + total_results / per_page;
 
         if page == last_page {
-            println!(
+            tracing::info!(
                 "No more pages (total results: {})",
                 response.total_results.unwrap()
             );
             break;
         } else {
-            println!(
+            tracing::info!(
                 "New page ({} / {} | {})",
                 per_page * page,
                 total_results,
@@ -274,15 +276,16 @@ struct RequestCache(collections::HashMap<String, inaturalist::models::Observatio
 impl RequestCache {
     fn load_or_create() -> Self {
         Self::load().unwrap_or_else(|| {
-            println!("Creating new cache");
+            tracing::info!("Creating new cache");
             RequestCache(collections::HashMap::new())
         })
     }
 
     fn load() -> Option<Self> {
+        tracing::info!("Loading cache...");
         let file = fs::File::open("/tmp/inaturalist-request-cache.json").ok()?;
         let cache = serde_json::from_reader(file).ok()?;
-        println!("Fetched old cache");
+        tracing::info!("Fetched old cache");
         cache
     }
 
