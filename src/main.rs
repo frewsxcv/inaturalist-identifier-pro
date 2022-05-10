@@ -1,6 +1,6 @@
 use geo::algorithm::contains::Contains;
 use std::hash::{Hash, Hasher};
-use std::{collections, error, fs, io, thread, time};
+use std::{collections, error, fs, io, thread, time, process};
 use std::io::Write;
 
 const PLANTAE_ID: u32 = 47126;
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let rect = geo::Rect::new(sw, ne);
 
-    let divisions = 32;
+    let divisions = 128;
 
     let mut entries = vec![];
 
@@ -97,7 +97,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         to_geojson(entries).to_string(),
     )?;
 
-    Ok(())
+    process::exit(0);
 }
 
 struct SubdividedRect(Rect);
