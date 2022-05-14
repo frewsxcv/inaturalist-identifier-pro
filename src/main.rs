@@ -68,7 +68,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let subdivided_rects = subdivide_rect(rect).await?;
     let num_rects = subdivided_rects.len();
-    let mut observations = vec![];
+    let mut observations = Vec::with_capacity(subdivided_rects.len());
     for (i, s) in subdivided_rects.into_iter().enumerate() {
         tracing::info!("Fetch tile ({} / {})", i, num_rects);
         observations.append(&mut fetch(s.0).await?);
