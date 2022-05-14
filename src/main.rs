@@ -25,7 +25,6 @@ lazy_static::lazy_static! {
         async_mutex::Mutex::new(RequestCache::load_or_create());
 }
 
-// TODO: read and write from request cache
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
