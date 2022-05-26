@@ -549,13 +549,14 @@ dependencies = [
 
 [[package]]
 name = "inaturalist"
-version = "0.1.0"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d46354f3f222cb3bc474f25511cecfb89c6652ab06ce2a41968ff03ae3945424"
 dependencies = [
  "reqwest",
  "serde",
  "serde_derive",
  "serde_json",
- "serde_path_to_error",
  "url",
 ]
 
@@ -1149,15 +1150,6 @@ checksum = "9b7ce2b32a1aed03c558dc61a5cd328f15aff2dbc17daad8fb8af04d2100e15c"
 dependencies = [
  "itoa",
  "ryu",
- "serde",
-]
-
-[[package]]
-name = "serde_path_to_error"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7868ad3b8196a8a0aea99a8220b124278ee5320a55e4fde97794b6f85b1a377"
-dependencies = [
  "serde",
 ]
 
