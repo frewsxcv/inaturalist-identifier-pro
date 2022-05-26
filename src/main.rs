@@ -1,7 +1,7 @@
 use geo::algorithm::contains::Contains;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
-use std::{collections, error, fs, io, num, process, thread, time};
+use std::{collections, env, error, fs, io, num, path, process, thread, time};
 
 const PLANTAE_ID: u32 = 47126;
 
@@ -58,7 +58,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                 cache.0.clone()
             };
 
-            let file = fs::File::create("/tmp/inaturalist-request-cache.json").unwrap();
+            let file = fs::File::create(RequestCache::file_path()).unwrap();
             tracing::info!("Writing cache...");
             let _ = io::stdout().flush();
             serde_json::to_writer(file, &cache_contents).unwrap();
@@ -282,11 +282,16 @@ impl RequestCache {
     }
 
     fn load() -> Option<Self> {
-        tracing::info!("Loading cache...");
-        let file = fs::File::open("/tmp/inaturalist-request-cache.json").ok()?;
+        let path = Self::file_path();
+        tracing::info!("Loading cache... ({})", path.display());
+        let file = fs::File::open(path).ok()?;
         let cache = serde_json::from_reader(file).ok()?;
         tracing::info!("Fetched old cache");
         cache
+    }
+
+    fn file_path() -> path::PathBuf {
+        env::temp_dir().join("inaturalist-request-cache.json")
     }
 
     fn get(
