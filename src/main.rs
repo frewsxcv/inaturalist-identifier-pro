@@ -1,9 +1,12 @@
 use geo::algorithm::contains::Contains;
 use std::hash::{Hash, Hasher};
-use std::{collections, error, fs, io, thread, time, process};
 use std::io::Write;
+use std::{collections, error, fs, io, num, process, thread, time};
 
 const PLANTAE_ID: u32 = 47126;
+
+const INATURALIST_RATE_LIMIT_AMOUNT: governor::Quota =
+    governor::Quota::per_second(unsafe { num::NonZeroU32::new_unchecked(1) });
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
@@ -18,9 +21,7 @@ lazy_static::lazy_static! {
         governor::state::InMemoryState,
         governor::clock::DefaultClock,
     > =
-        governor::RateLimiter::direct(
-            governor::Quota::per_second(1.try_into().unwrap()),
-        );
+        governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
     static ref INATURALIST_REQUEST_CACHE: async_mutex::Mutex<RequestCache> =
         async_mutex::Mutex::new(RequestCache::load_or_create());
 }
