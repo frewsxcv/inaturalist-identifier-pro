@@ -45,11 +45,6 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let rect = geo::Rect::new(sw, ne);
 
-    for hash in geohashes_within_rect(rect, 5) {
-        println!("hash: {}", hash);
-    }
-    return Ok(());
-
     let divisions = 128;
 
     let mut entries = vec![];
@@ -366,31 +361,44 @@ fn grid_iter(rect: Rect, divisions: u32) -> impl Iterator<Item = Rect> {
     })
 }
 
-fn geohashes_within_rect<T: geo::CoordNum>(rect: geo::Rect<T>, len: usize) -> Iter<T> {
+fn cast_rect<T: geo::CoordNum, U: geo::CoordNum>(from: geo::Rect<T>) -> Option<geo::Rect<U>> {
+    Some(geo::Rect::new(
+        geo::coord! {
+            x: U::from(from.min().x)?,
+            y: U::from(from.min().y)?
+        },
+        geo::coord! {
+            x: U::from(from.max().x)?,
+            y: U::from(from.max().y)?
+        },
+    ))
+}
+
+fn geohashes_within_rect<T: geo::CoordNum>(rect: geo::Rect<T>, len: usize) -> Iter {
     Iter {
-        rect,
+        rect: cast_rect::<T, f64>(rect).unwrap(),
         len,
         last: None,
     }
 }
 
-struct Iter<T: geo::CoordNum> {
-    rect: geo::Rect<T>,
+struct Iter {
+    rect: geo::Rect<f64>,
     len: usize,
     last: Option<String>,
 }
 
-impl<T: geo::CoordNum> Iter<T> {
+impl Iter {
     fn first(&self) -> String {
         let min = geo::coord! {
-            x: self.rect.min().x.to_f64().unwrap(),
-            y: self.rect.min().y.to_f64().unwrap()
+            x: self.rect.min().x,
+            y: self.rect.min().y
         };
         geohash::encode(min, self.len).unwrap()
     }
 }
 
-impl<T: geo::CoordNum> Iterator for Iter<T> {
+impl Iterator for Iter {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -400,15 +408,15 @@ impl<T: geo::CoordNum> Iterator for Iter<T> {
                 // If:
                 //
                 // - The last geohash has not exceeded rect's x max, then find the east neighbor
-                if geohash_rect.max().x < (self.rect.max().x.to_f64().unwrap()) {
+                if geohash_rect.max().x < self.rect.max().x {
                     Some(geohash::neighbor(last, geohash::Direction::E).unwrap())
                 // If:
                 //
                 // - The last geohash has exceeded rect's x max, and...
                 // - The last geohash has not exceeded rect's y max, then start the next North row, starting from the West
-                } else if geohash_rect.max().y < (self.rect.max().y.to_f64().unwrap()) {
+                } else if geohash_rect.max().y < self.rect.max().y {
                     let min = geo::coord! {
-                        x: self.rect.min().x.to_f64().unwrap(),
+                        x: self.rect.min().x,
                         y: geohash_rect.max().y + f64::MIN_POSITIVE,
                     };
                     Some(geohash::encode(min, self.len).unwrap())
@@ -416,9 +424,7 @@ impl<T: geo::CoordNum> Iterator for Iter<T> {
                     return None;
                 }
             }
-            None => {
-                Some(self.first())
-            }
+            None => Some(self.first()),
         };
         self.last.clone()
     }
