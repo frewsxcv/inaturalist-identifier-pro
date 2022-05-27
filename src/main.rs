@@ -45,6 +45,11 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let rect = geo::Rect::new(sw, ne);
 
+    for hash in geohashes_within_rect(rect, 5) {
+        println!("hash: {}", hash);
+    }
+    return Ok(());
+
     let divisions = 128;
 
     let mut entries = vec![];
@@ -359,4 +364,62 @@ fn grid_iter(rect: Rect, divisions: u32) -> impl Iterator<Item = Rect> {
             geo::coord! { x: sw_x + grid_width, y: sw_y + grid_height, },
         )
     })
+}
+
+fn geohashes_within_rect<T: geo::CoordNum>(rect: geo::Rect<T>, len: usize) -> Iter<T> {
+    Iter {
+        rect,
+        len,
+        last: None,
+    }
+}
+
+struct Iter<T: geo::CoordNum> {
+    rect: geo::Rect<T>,
+    len: usize,
+    last: Option<String>,
+}
+
+impl<T: geo::CoordNum> Iter<T> {
+    fn first(&self) -> String {
+        let min = geo::coord! {
+            x: self.rect.min().x.to_f64().unwrap(),
+            y: self.rect.min().y.to_f64().unwrap()
+        };
+        geohash::encode(min, self.len).unwrap()
+    }
+}
+
+impl<T: geo::CoordNum> Iterator for Iter<T> {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.last = match &self.last {
+            Some(last) => {
+                let geohash_rect = geohash::decode_bbox(last).unwrap();
+                // If:
+                //
+                // - The last geohash has not exceeded rect's x max, then find the east neighbor
+                if geohash_rect.max().x < (self.rect.max().x.to_f64().unwrap()) {
+                    Some(geohash::neighbor(last, geohash::Direction::E).unwrap())
+                // If:
+                //
+                // - The last geohash has exceeded rect's x max, and...
+                // - The last geohash has not exceeded rect's y max, then start the next North row, starting from the West
+                } else if geohash_rect.max().y < (self.rect.max().y.to_f64().unwrap()) {
+                    let min = geo::coord! {
+                        x: self.rect.min().x.to_f64().unwrap(),
+                        y: geohash_rect.max().y + f64::MIN_POSITIVE,
+                    };
+                    Some(geohash::encode(min, self.len).unwrap())
+                } else {
+                    return None;
+                }
+            }
+            None => {
+                Some(self.first())
+            }
+        };
+        self.last.clone()
+    }
 }
