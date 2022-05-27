@@ -16,34 +16,54 @@ lazy_static::lazy_static! {
             base_path: String::from("https://api.inaturalist.org/v1"),
             ..Default::default()
         };
+
     static ref INATURALIST_RATE_LIMITER: governor::RateLimiter<
         governor::state::direct::NotKeyed,
         governor::state::InMemoryState,
         governor::clock::DefaultClock,
     > =
         governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
+
     static ref INATURALIST_REQUEST_CACHE: async_mutex::Mutex<RequestCache> =
         async_mutex::Mutex::new(RequestCache::load_or_create());
+
+    static ref HARRIMAN_STATE_PARK: geo::Rect<ordered_float::OrderedFloat<f64>> = geo::Rect::new(
+        geo::coord! {
+            x: ordered_float::OrderedFloat(-74.26345825195312),
+            y: ordered_float::OrderedFloat(41.101086483800515),
+        },
+        geo::coord! {
+            x: ordered_float::OrderedFloat(-73.89335632324219),
+            y: ordered_float::OrderedFloat(41.34124700339191)
+        },
+    );
+
+    static ref BROOKLYN: geo::Rect<ordered_float::OrderedFloat<f64>> = geo::Rect::new(
+        geo::coord! {
+            x: ordered_float::OrderedFloat(-74.046000f64),
+            y: ordered_float::OrderedFloat(40.567),
+        },
+        geo::coord! {
+            x: ordered_float::OrderedFloat(-73.9389741f64),
+            y: ordered_float::OrderedFloat(40.6942535f64),
+        },
+    );
+
+    static ref NYC: geo::Rect<ordered_float::OrderedFloat<f64>> = geo::Rect::new(
+        geo::coord! {
+            x: ordered_float::OrderedFloat(-74.258019),
+            y: ordered_float::OrderedFloat(40.490742)
+        },
+        geo::coord! {
+            x: ordered_float::OrderedFloat(-73.555615),
+            y: ordered_float::OrderedFloat(41.017433)
+        },
+    );
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
-
-    // Brooklyn
-    // let sw = geo::coord! { x: -74.046000f64, y: 40.567 };
-    // let ne = geo::coord! { x: -73.9389741f64, y: 40.6942535f64 };
-
-    let sw = geo::coord! {
-        x: ordered_float::OrderedFloat(-74.258019),
-        y: ordered_float::OrderedFloat(40.490742)
-    };
-    let ne = geo::coord! {
-        x: ordered_float::OrderedFloat(-73.555615),
-        y: ordered_float::OrderedFloat(41.017433)
-    };
-
-    let rect = geo::Rect::new(sw, ne);
 
     let divisions = 128;
 
