@@ -27,7 +27,7 @@ lazy_static::lazy_static! {
     static ref INATURALIST_REQUEST_CACHE: async_mutex::Mutex<RequestCache> =
         async_mutex::Mutex::new(RequestCache::load_or_create());
 
-    static ref HARRIMAN_STATE_PARK: geo::Rect<ordered_float::OrderedFloat<f64>> = geo::Rect::new(
+    static ref HARRIMAN_STATE_PARK: Rect = geo::Rect::new(
         geo::coord! {
             x: ordered_float::OrderedFloat(-74.26345825195312),
             y: ordered_float::OrderedFloat(41.101086483800515),
@@ -38,7 +38,7 @@ lazy_static::lazy_static! {
         },
     );
 
-    static ref BROOKLYN: geo::Rect<ordered_float::OrderedFloat<f64>> = geo::Rect::new(
+    static ref BROOKLYN: Rect = geo::Rect::new(
         geo::coord! {
             x: ordered_float::OrderedFloat(-74.046000f64),
             y: ordered_float::OrderedFloat(40.567),
@@ -49,7 +49,7 @@ lazy_static::lazy_static! {
         },
     );
 
-    static ref NYC: geo::Rect<ordered_float::OrderedFloat<f64>> = geo::Rect::new(
+    static ref NYC: Rect = geo::Rect::new(
         geo::coord! {
             x: ordered_float::OrderedFloat(-74.258019),
             y: ordered_float::OrderedFloat(40.490742)
