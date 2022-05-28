@@ -2,7 +2,7 @@ use geo::algorithm::contains::Contains;
 use geohash_ext::{Geohash, GeohashGrid};
 use std::hash::{Hash, Hasher};
 use std::io::Write;
-use std::{collections, env, error, fs, io, num, path, process};
+use std::{collections, env, error, io, num, path, process};
 
 mod geo_ext;
 mod geohash_ext;
@@ -67,23 +67,23 @@ struct GeohashObservations(Geohash);
 
 impl GeohashObservations {
     async fn fetch(&self) -> Result<Observations, Box<dyn error::Error>> {
-        if let Ok(Some(observations)) = self.fetch_from_cache() {
+        if let Ok(Some(observations)) = self.fetch_from_cache().await {
             return Ok(observations);
         }
 
         let observations = self.fetch_from_api().await?;
-        self.write_to_cache(&observations)?;
+        self.write_to_cache(&observations).await?;
         Ok(observations)
     }
 
-    fn fetch_from_cache(&self) -> Result<Option<Observations>, Box<dyn error::Error>> {
-        let path = self.cache_path()?;
+    async fn fetch_from_cache(&self) -> Result<Option<Observations>, Box<dyn error::Error>> {
+        let path = self.cache_path().await?;
         tracing::info!("Loading cache... ({})", path.display());
         if !path.exists() {
             return Ok(None);
         }
-        let file = fs::File::open(path)?;
-        let cache = serde_json::from_reader(file)?;
+        let file = tokio::fs::File::open(path).await?;
+        let cache = serde_json::from_reader(file.into_std().await)?;
         tracing::info!("Fetched old cache");
         Ok(Some(cache))
     }
@@ -99,23 +99,23 @@ impl GeohashObservations {
         Ok(observations)
     }
 
-    fn cache_dir() -> Result<path::PathBuf, Box<dyn error::Error>> {
+    async fn cache_dir() -> Result<path::PathBuf, Box<dyn error::Error>> {
         let path = env::temp_dir().join("inaturalist-request-cache");
         if !path.exists() {
-            fs::create_dir_all(&path)?;
+            tokio::fs::create_dir_all(&path).await?;
         }
         Ok(path)
     }
 
-    fn cache_path(&self) -> Result<path::PathBuf, Box<dyn error::Error>> {
-        Ok(Self::cache_dir()?.join(&self.0.string))
+    async fn cache_path(&self) -> Result<path::PathBuf, Box<dyn error::Error>> {
+        Ok(Self::cache_dir().await?.join(&self.0.string))
     }
 
-    fn write_to_cache(&self, observations: &Observations) -> Result<(), Box<dyn error::Error>> {
-        let file = fs::File::create(self.cache_path()?)?;
+    async fn write_to_cache(&self, observations: &Observations) -> Result<(), Box<dyn error::Error>> {
+        let file = tokio::fs::File::create(self.cache_path().await?).await?;
         tracing::info!("Writing cache...");
         let _ = io::stdout().flush();
-        serde_json::to_writer(file, &observations)?;
+        serde_json::to_writer(file.into_std().await, &observations)?;
         tracing::info!("done");
         let _ = io::stdout().flush();
         Ok(())
@@ -152,10 +152,10 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         foreign_members: None,
     };
 
-    fs::write(
+    tokio::fs::write(
         "/Users/coreyf/tmp/output.geojson",
         geojson_feature_collection.to_string(),
-    )?;
+    ).await?;
 
     process::exit(0);
 }
