@@ -296,12 +296,12 @@ fn build_params(
         nelat: Some(*rect.max().y),
         nelng: Some(*rect.max().x),
         // quality_grade: Some(String::from("research")),
-        captive: Some(false),
+        // captive: Some(false),
         taxon_id: Some(vec![PLANTAE_ID.to_string()]),
         per_page: Some(per_page.to_string()),
-        identified: Some(true),
-        identifications: Some(String::from("most_agree")),
-        native: Some(true),
+        // identified: Some(true),
+        // identifications: Some(String::from("most_agree")),
+        // native: Some(true),
         page: Some(page.to_string()),
         ..Default::default()
     }
