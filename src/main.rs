@@ -126,7 +126,7 @@ impl GeohashObservations {
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let grid = GeohashGrid::from_rect(*HARRIMAN_STATE_PARK, 6);
+    let grid = GeohashGrid::from_rect(*HARRIMAN_STATE_PARK, 5);
     let grid_count = grid.0.len();
     let mut geojson_features = vec![];
 
@@ -229,6 +229,7 @@ fn split_rect(rect: Rect) -> (Rect, Rect) {
 }
 
 fn observations_species_count(observations: &[inaturalist::models::Observation]) -> usize {
+    // TODO this should actually be a ratio?
     observations
         .iter()
         .filter_map(|observation| observation.taxon.as_ref())
@@ -294,10 +295,12 @@ fn build_params(
         swlng: Some(*rect.min().x),
         nelat: Some(*rect.max().y),
         nelng: Some(*rect.max().x),
-        quality_grade: Some(String::from("research")),
+        // quality_grade: Some(String::from("research")),
         captive: Some(false),
         taxon_id: Some(vec![PLANTAE_ID.to_string()]),
         per_page: Some(per_page.to_string()),
+        identified: Some(true),
+        identifications: Some(String::from("most_agree")),
         native: Some(true),
         page: Some(page.to_string()),
         ..Default::default()
