@@ -1,8 +1,7 @@
-use geo::algorithm::contains::Contains;
 use geohash_ext::{Geohash, GeohashGrid};
-use std::hash::{Hash, Hasher};
 use std::io::Write;
-use std::{collections, env, error, io, num, path, process};
+use std::{collections, env, error, fs, io, mem, num, path, process};
+use inaturalist::models::Observation;
 
 mod geo_ext;
 mod geohash_ext;
@@ -13,7 +12,7 @@ const INATURALIST_RATE_LIMIT_AMOUNT: governor::Quota =
     governor::Quota::per_second(unsafe { num::NonZeroU32::new_unchecked(1) });
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
-type Observations = Vec<inaturalist::models::Observation>;
+type Observations = Vec<Observation>;
 
 lazy_static::lazy_static! {
     static ref INATURALIST_REQUEST_CONFIG: inaturalist::apis::configuration::Configuration =
@@ -128,7 +127,9 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let grid = GeohashGrid::from_rect(*HARRIMAN_STATE_PARK, 5);
     let grid_count = grid.0.len();
-    let mut geojson_features = vec![];
+
+    let mut operation = PrintPlantae;
+    // let mut operation = GeoJsonUniqueSpecies { geojson_features: vec![] };
 
     for (i, geohash) in grid.0.into_iter().enumerate() {
         tracing::info!(
@@ -137,27 +138,61 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             i + 1,
             grid_count
         );
+        let observations = GeohashObservations(geohash.clone()).fetch().await?;
+        operation.visit_geohash_observations(&geohash, &observations);
+        for observation in observations {
+            operation.visit_observation(&observation);
+        }
+    }
+    operation.finish();
+
+    process::exit(0);
+}
+
+trait Operation {
+    fn visit_observation(&mut self, _observation: &Observation) {}
+    fn visit_geohash_observations(&mut self, _geohash: &Geohash, _observations: &Observations) {}
+    fn finish(&mut self) {}
+}
+
+struct PrintPlantae;
+
+impl Operation for PrintPlantae {
+    fn visit_observation(&mut self, observation: &Observation) {
+        if let Some(taxon) = &observation.taxon {
+            if taxon.rank == Some("kingdom".to_string()) {
+                println!("{}", observation.uri.as_ref().unwrap());
+            }
+        }
+    }
+}
+
+struct GeoJsonUniqueSpecies {
+    geojson_features: Vec<geojson::Feature>,
+}
+
+impl Operation for GeoJsonUniqueSpecies {
+    fn visit_geohash_observations(&mut self, geohash: &Geohash, observations: &Observations) {
         let mut geojson_feature = geohash.to_geojson_feature();
-        let observations = GeohashObservations(geohash).fetch().await?;
-        let species_count = observations_species_count(&observations);
+        let species_count = observations_species_count(observations);
         if let Some(properties) = &mut geojson_feature.properties {
             properties.insert("species count".into(), species_count.into());
         }
-        geojson_features.push(geojson_feature);
+        self.geojson_features.push(geojson_feature);
     }
 
-    let geojson_feature_collection = geojson::FeatureCollection {
-        features: geojson_features,
-        bbox: None,
-        foreign_members: None,
-    };
+    fn finish(&mut self) {
+        let geojson_feature_collection = geojson::FeatureCollection {
+            features: mem::take(&mut self.geojson_features),
+            bbox: None,
+            foreign_members: None,
+        };
 
-    tokio::fs::write(
-        "/Users/coreyf/tmp/output.geojson",
-        geojson_feature_collection.to_string(),
-    ).await?;
-
-    process::exit(0);
+        fs::write(
+            "/Users/coreyf/tmp/output.geojson",
+            geojson_feature_collection.to_string(),
+        ).unwrap();
+    }
 }
 
 struct SubdividedRect(Rect);
@@ -228,7 +263,7 @@ fn split_rect(rect: Rect) -> (Rect, Rect) {
     }
 }
 
-fn observations_species_count(observations: &[inaturalist::models::Observation]) -> usize {
+fn observations_species_count(observations: &[Observation]) -> usize {
     // TODO this should actually be a ratio?
     observations
         .iter()

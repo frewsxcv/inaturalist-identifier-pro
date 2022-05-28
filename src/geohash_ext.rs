@@ -1,5 +1,6 @@
 use crate::geo_ext::Cast;
 
+#[derive(Clone)]
 pub struct Geohash {
     pub string: String,
     pub bounding_rect: crate::Rect,
@@ -39,6 +40,7 @@ impl GeohashGrid {
         )
     }
 
+    #[allow(unused)]
     pub fn to_geojson_feature_collection(&self) -> geojson::FeatureCollection {
         let mut features = vec![];
         for geohash in &self.0 {
