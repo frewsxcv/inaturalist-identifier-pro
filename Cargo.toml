@@ -8,7 +8,7 @@ async-mutex = "1"
 async-recursion = "1"
 geo = { version = "0.20", features = ["use-serde"] }
 geohash = "0.12"
-geojson = { version = "0.22", features = ["geo-types"] }
+geojson = { version = "0.22.4", features = ["geo-types"] }
 governor = "0.4"
 inaturalist = "0.2"
 lazy_static = "1"

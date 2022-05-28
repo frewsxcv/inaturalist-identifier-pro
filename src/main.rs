@@ -1,7 +1,11 @@
 use geo::algorithm::contains::Contains;
+use geohash_ext::{Geohash, GeohashGrid};
 use std::hash::{Hash, Hasher};
 use std::io::Write;
-use std::{collections, env, error, fs, io, num, path, process, thread, time};
+use std::{collections, env, error, fs, io, num, path, process};
+
+mod geo_ext;
+mod geohash_ext;
 
 const PLANTAE_ID: u32 = 47126;
 
@@ -9,6 +13,7 @@ const INATURALIST_RATE_LIMIT_AMOUNT: governor::Quota =
     governor::Quota::per_second(unsafe { num::NonZeroU32::new_unchecked(1) });
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
+type Observations = Vec<inaturalist::models::Observation>;
 
 lazy_static::lazy_static! {
     static ref INATURALIST_REQUEST_CONFIG: inaturalist::apis::configuration::Configuration =
@@ -24,16 +29,13 @@ lazy_static::lazy_static! {
     > =
         governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
 
-    static ref INATURALIST_REQUEST_CACHE: async_mutex::Mutex<RequestCache> =
-        async_mutex::Mutex::new(RequestCache::load_or_create());
-
     static ref HARRIMAN_STATE_PARK: Rect = geo::Rect::new(
         geo::coord! {
             x: ordered_float::OrderedFloat(-74.26345825195312),
             y: ordered_float::OrderedFloat(41.101086483800515),
         },
         geo::coord! {
-            x: ordered_float::OrderedFloat(-73.89335632324219),
+            x: ordered_float::OrderedFloat(-73.948873),
             y: ordered_float::OrderedFloat(41.34124700339191)
         },
     );
@@ -61,71 +63,104 @@ lazy_static::lazy_static! {
     );
 }
 
+struct GeohashObservations(Geohash);
+
+impl GeohashObservations {
+    async fn fetch(&self) -> Result<Observations, Box<dyn error::Error>> {
+        if let Ok(Some(observations)) = self.fetch_from_cache() {
+            return Ok(observations);
+        }
+
+        let observations = self.fetch_from_api().await?;
+        self.write_to_cache(&observations)?;
+        Ok(observations)
+    }
+
+    fn fetch_from_cache(&self) -> Result<Option<Observations>, Box<dyn error::Error>> {
+        let path = self.cache_path()?;
+        tracing::info!("Loading cache... ({})", path.display());
+        if !path.exists() {
+            return Ok(None);
+        }
+        let file = fs::File::open(path)?;
+        let cache = serde_json::from_reader(file)?;
+        tracing::info!("Fetched old cache");
+        Ok(Some(cache))
+    }
+
+    async fn fetch_from_api(&self) -> Result<Observations, Box<dyn error::Error>> {
+        let subdivided_rects = subdivide_rect(self.0.bounding_rect).await?;
+        let num_rects = subdivided_rects.len();
+        let mut observations = Vec::with_capacity(subdivided_rects.len());
+        for (i, s) in subdivided_rects.into_iter().enumerate() {
+            tracing::info!("Fetch tile ({} / {})", i + 1, num_rects);
+            observations.append(&mut fetch(s.0).await?);
+        }
+        Ok(observations)
+    }
+
+    fn cache_dir() -> Result<path::PathBuf, Box<dyn error::Error>> {
+        let path = env::temp_dir().join("inaturalist-request-cache");
+        if !path.exists() {
+            fs::create_dir_all(&path)?;
+        }
+        Ok(path)
+    }
+
+    fn cache_path(&self) -> Result<path::PathBuf, Box<dyn error::Error>> {
+        Ok(Self::cache_dir()?.join(&self.0.string))
+    }
+
+    fn write_to_cache(&self, observations: &Observations) -> Result<(), Box<dyn error::Error>> {
+        let file = fs::File::create(self.cache_path()?)?;
+        tracing::info!("Writing cache...");
+        let _ = io::stdout().flush();
+        serde_json::to_writer(file, &observations)?;
+        tracing::info!("done");
+        let _ = io::stdout().flush();
+        Ok(())
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let divisions = 128;
+    let grid = GeohashGrid::from_rect(*HARRIMAN_STATE_PARK, 6);
+    let grid_count = grid.0.len();
+    let mut geojson_features = vec![];
 
-    let mut entries = vec![];
-
-    tokio::spawn(async {
-        loop {
-            thread::sleep(time::Duration::from_secs(60));
-
-            let cache_contents = {
-                let cache = INATURALIST_REQUEST_CACHE.lock().await;
-                cache.0.clone()
-            };
-
-            let file = fs::File::create(RequestCache::file_path()).unwrap();
-            tracing::info!("Writing cache...");
-            let _ = io::stdout().flush();
-            serde_json::to_writer(file, &cache_contents).unwrap();
-            tracing::info!("done");
-            let _ = io::stdout().flush();
+    for (i, geohash) in grid.0.into_iter().enumerate() {
+        tracing::info!(
+            "Fetch observations for geohash {} ({} / {})",
+            geohash.string,
+            i + 1,
+            grid_count
+        );
+        let mut geojson_feature = geohash.to_geojson_feature();
+        let observations = GeohashObservations(geohash).fetch().await?;
+        let species_count = observations_species_count(&observations);
+        if let Some(properties) = &mut geojson_feature.properties {
+            properties.insert("species count".into(), species_count.into());
         }
-    });
-
-    let subdivided_rects = subdivide_rect(rect).await?;
-    let num_rects = subdivided_rects.len();
-    let mut observations = Vec::with_capacity(subdivided_rects.len());
-    for (i, s) in subdivided_rects.into_iter().enumerate() {
-        tracing::info!("Fetch tile ({} / {})", i, num_rects);
-        observations.append(&mut fetch(s.0).await?);
+        geojson_features.push(geojson_feature);
     }
 
-    for (i, rect) in grid_iter(rect, divisions).enumerate() {
-        tracing::info!("Building new tile ({} / {})", i, divisions * divisions);
-        let mut observations_in_tile = vec![];
-
-        for observation in &observations {
-            if let Some(c) = observation
-                .geojson
-                .as_ref()
-                .and_then(|g| g.coordinates.as_ref())
-            {
-                if rect.contains(&geo::point! { x: ordered_float::OrderedFloat(c[0]), y: ordered_float::OrderedFloat(c[1]) }) {
-                    observations_in_tile.push(observation.clone());
-                }
-            }
-        }
-
-        entries.push((rect, observations_species_count(&observations_in_tile)));
-    }
+    let geojson_feature_collection = geojson::FeatureCollection {
+        features: geojson_features,
+        bbox: None,
+        foreign_members: None,
+    };
 
     fs::write(
         "/Users/coreyf/tmp/output.geojson",
-        to_geojson(entries).to_string(),
+        geojson_feature_collection.to_string(),
     )?;
 
     process::exit(0);
 }
 
 struct SubdividedRect(Rect);
-
-type Entry = (Rect, usize);
-type Entries = Vec<Entry>;
 
 /// iNaturalist will not let us page past 10,000 results.
 const MAX_RESULTS: i32 = 10_000;
@@ -141,23 +176,13 @@ async fn subdivide_rect(
 > {
     let page = 1;
     let per_page = 1;
-    let response = {
-        let mut request_cache = INATURALIST_REQUEST_CACHE.lock().await;
-        if let Some(response) = request_cache.get(rect, per_page, page) {
-            tracing::info!("Found in cache");
-            response.clone()
-        } else {
-            tracing::info!("Not found in cache");
-            INATURALIST_RATE_LIMITER.until_ready().await;
-            let response = inaturalist::apis::observations_api::observations_get(
-                &INATURALIST_REQUEST_CONFIG,
-                build_params(rect, page, per_page),
-            )
-            .await?;
-            request_cache.insert(rect, per_page, page, response.clone());
-            response
-        }
-    };
+    INATURALIST_RATE_LIMITER.until_ready().await;
+
+    let response = inaturalist::apis::observations_api::observations_get(
+        &INATURALIST_REQUEST_CONFIG,
+        build_params(rect, page, per_page),
+    )
+    .await?;
 
     Ok(if response.total_results.unwrap() < MAX_RESULTS {
         tracing::info!("Rect is sufficient");
@@ -212,27 +237,6 @@ fn observations_species_count(observations: &[inaturalist::models::Observation])
         .len()
 }
 
-fn to_geojson(entries: Entries) -> geojson::FeatureCollection {
-    let mut features = vec![];
-    for entry in entries {
-        let value = geojson::Value::try_from(&entry.0.to_polygon()).unwrap();
-        let mut properties = serde_json::Map::new();
-        properties.insert("amount".into(), entry.1.into());
-        features.push(geojson::Feature {
-            geometry: Some(value.into()),
-            properties: Some(properties),
-            bbox: None,
-            id: None,
-            foreign_members: None,
-        })
-    }
-    geojson::FeatureCollection {
-        features,
-        bbox: None,
-        foreign_members: None,
-    }
-}
-
 async fn fetch(
     rect: Rect,
 ) -> Result<
@@ -243,26 +247,16 @@ async fn fetch(
     let per_page = MAX_RESULTS_PER_PAGE;
 
     for page in 1.. {
-        let mut response = {
-            let mut request_cache = INATURALIST_REQUEST_CACHE.lock().await;
-            if let Some(response) = request_cache.get(rect, per_page, page) {
-                tracing::info!("Fetched observations from cache");
-                response.clone()
-            } else {
-                tracing::info!("Fetching observations...");
-                let _ = io::stdout().flush();
-                INATURALIST_RATE_LIMITER.until_ready().await;
-                let response = inaturalist::apis::observations_api::observations_get(
-                    &INATURALIST_REQUEST_CONFIG,
-                    build_params(rect, page, per_page),
-                )
-                .await?;
-                tracing::info!("done");
-                let _ = io::stdout().flush();
-                request_cache.insert(rect, per_page, page, response.clone());
-                response
-            }
-        };
+        tracing::info!("Fetching observations...");
+        let _ = io::stdout().flush();
+        INATURALIST_RATE_LIMITER.until_ready().await;
+        let mut response = inaturalist::apis::observations_api::observations_get(
+            &INATURALIST_REQUEST_CONFIG,
+            build_params(rect, page, per_page),
+        )
+        .await?;
+        tracing::info!("done");
+        let _ = io::stdout().flush();
 
         all.append(&mut response.results);
 
@@ -290,59 +284,6 @@ async fn fetch(
     Ok(all)
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
-struct RequestCache(collections::HashMap<String, inaturalist::models::ObservationsResponse>);
-
-impl RequestCache {
-    fn load_or_create() -> Self {
-        Self::load().unwrap_or_else(|| {
-            tracing::info!("Creating new cache");
-            RequestCache(collections::HashMap::new())
-        })
-    }
-
-    fn load() -> Option<Self> {
-        let path = Self::file_path();
-        tracing::info!("Loading cache... ({})", path.display());
-        let file = fs::File::open(path).ok()?;
-        let cache = serde_json::from_reader(file).ok()?;
-        tracing::info!("Fetched old cache");
-        cache
-    }
-
-    fn file_path() -> path::PathBuf {
-        env::temp_dir().join("inaturalist-request-cache.json")
-    }
-
-    fn get(
-        &self,
-        rect: Rect,
-        per_page: u32,
-        page: u32,
-    ) -> Option<&inaturalist::models::ObservationsResponse> {
-        self.0.get(&hash_request_info(rect, per_page, page))
-    }
-
-    fn insert(
-        &mut self,
-        rect: Rect,
-        per_page: u32,
-        page: u32,
-        response: inaturalist::models::ObservationsResponse,
-    ) {
-        self.0
-            .insert(hash_request_info(rect, per_page, page), response);
-    }
-}
-
-fn hash_request_info(rect: Rect, per_page: u32, page: u32) -> String {
-    let mut hasher = collections::hash_map::DefaultHasher::new();
-    rect.hash(&mut hasher);
-    per_page.hash(&mut hasher);
-    page.hash(&mut hasher);
-    format!("{:x}", hasher.finish())
-}
-
 fn build_params(
     rect: Rect,
     page: u32,
@@ -360,92 +301,5 @@ fn build_params(
         native: Some(true),
         page: Some(page.to_string()),
         ..Default::default()
-    }
-}
-
-fn grid_iter(rect: Rect, divisions: u32) -> impl Iterator<Item = Rect> {
-    let grid_width = rect.width() / (divisions as f64);
-    let grid_height = rect.height() / (divisions as f64);
-
-    (0..(divisions * divisions)).map(move |n| {
-        let x_offset = n % divisions;
-        let y_offset = n / divisions;
-
-        let sw_x = rect.min().x + (grid_width * (x_offset as f64));
-        let sw_y = rect.min().y + (grid_height * (y_offset as f64));
-
-        geo::Rect::new(
-            geo::coord! { x: sw_x, y: sw_y, },
-            geo::coord! { x: sw_x + grid_width, y: sw_y + grid_height, },
-        )
-    })
-}
-
-fn cast_rect<T: geo::CoordNum, U: geo::CoordNum>(from: geo::Rect<T>) -> Option<geo::Rect<U>> {
-    Some(geo::Rect::new(
-        geo::coord! {
-            x: U::from(from.min().x)?,
-            y: U::from(from.min().y)?
-        },
-        geo::coord! {
-            x: U::from(from.max().x)?,
-            y: U::from(from.max().y)?
-        },
-    ))
-}
-
-fn geohashes_within_rect<T: geo::CoordNum>(rect: geo::Rect<T>, len: usize) -> Iter {
-    Iter {
-        rect: cast_rect::<T, f64>(rect).unwrap(),
-        len,
-        last: None,
-    }
-}
-
-struct Iter {
-    rect: geo::Rect<f64>,
-    len: usize,
-    last: Option<String>,
-}
-
-impl Iter {
-    fn first(&self) -> String {
-        let min = geo::coord! {
-            x: self.rect.min().x,
-            y: self.rect.min().y
-        };
-        geohash::encode(min, self.len).unwrap()
-    }
-}
-
-impl Iterator for Iter {
-    type Item = String;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.last = match &self.last {
-            Some(last) => {
-                let geohash_rect = geohash::decode_bbox(last).unwrap();
-                // If:
-                //
-                // - The last geohash has not exceeded rect's x max, then find the east neighbor
-                if geohash_rect.max().x < self.rect.max().x {
-                    Some(geohash::neighbor(last, geohash::Direction::E).unwrap())
-                // If:
-                //
-                // - The last geohash has exceeded rect's x max, and...
-                // - The last geohash has not exceeded rect's y max, then start the next North row, starting from the West
-                } else if geohash_rect.max().y < self.rect.max().y {
-                    let min = geo::coord! {
-                        x: self.rect.min().x,
-                        y: geohash_rect.max().y + f64::MIN_POSITIVE,
-                    };
-                    Some(geohash::encode(min, self.len).unwrap())
-                } else {
-                    return None;
-                }
-            }
-            None => Some(self.first()),
-        };
-        self.last.clone()
     }
 }
