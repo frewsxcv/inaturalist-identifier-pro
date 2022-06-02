@@ -1,4 +1,4 @@
-use crate::geo_ext::Cast;
+use geo::Convert;
 
 #[derive(Clone)]
 pub struct Geohash {
@@ -33,7 +33,7 @@ impl GeohashGrid {
                     let bbox = geohash::decode_bbox(&geohash_string).unwrap();
                     Geohash {
                         string: geohash_string,
-                        bounding_rect: bbox.cast().unwrap(),
+                        bounding_rect: bbox.convert(),
                     }
                 })
                 .collect(),
@@ -54,9 +54,13 @@ impl GeohashGrid {
     }
 }
 
-fn geohashes_within_rect<T: geo::CoordNum>(rect: geo::Rect<T>, len: usize) -> Iter {
+fn geohashes_within_rect<T>(rect: geo::Rect<T>, len: usize) -> Iter
+where
+    T: geo::CoordNum,
+    f64: From<T>,
+{
     Iter {
-        rect: rect.cast().unwrap(),
+        rect: rect.convert(),
         len,
         last: None,
     }

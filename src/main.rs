@@ -4,7 +4,6 @@ use std::{collections, env, error, fs, io, mem, num, path, process};
 use inaturalist::models::Observation;
 
 mod app;
-mod geo_ext;
 mod geohash_ext;
 
 const PLANTAE_ID: u32 = 47126;
