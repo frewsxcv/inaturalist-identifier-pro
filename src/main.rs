@@ -3,6 +3,7 @@ use std::io::Write;
 use std::{collections, env, error, fs, io, mem, num, path, process};
 use inaturalist::models::Observation;
 
+mod app;
 mod geo_ext;
 mod geohash_ext;
 
@@ -124,6 +125,15 @@ impl GeohashObservations {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
+
+    /*
+    let native_options = eframe::NativeOptions::default();
+    eframe::run_native(
+        "eframe template",
+        native_options,
+        Box::new(|cc| Box::new(app::TemplateApp::new(cc))),
+    );
+    */
 
     let grid = GeohashGrid::from_rect(*HARRIMAN_STATE_PARK, 5);
     let grid_count = grid.0.len();
