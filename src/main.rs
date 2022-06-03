@@ -1,6 +1,6 @@
 use geohash_ext::{Geohash, GeohashGrid};
 use std::io::Write;
-use std::{collections, env, error, fs, io, mem, num, path, process};
+use std::{collections, env, error, io, num, path, process};
 use inaturalist::models::Observation;
 use operations::Operation;
 
