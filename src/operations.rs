@@ -1,0 +1,57 @@
+use std::{fs, mem};
+
+pub trait Operation {
+    fn visit_observation(&mut self, _observation: &crate::Observation) {}
+    fn visit_geohash_observations(
+        &mut self,
+        _geohash: &crate::Geohash,
+        _observations: &crate::Observations,
+    ) {
+    }
+    fn finish(&mut self) {}
+}
+
+pub struct PrintPlantae;
+
+impl Operation for PrintPlantae {
+    fn visit_observation(&mut self, observation: &crate::Observation) {
+        if let Some(taxon) = &observation.taxon {
+            if taxon.rank == Some("kingdom".to_string()) {
+                println!("{}", observation.uri.as_ref().unwrap());
+            }
+        }
+    }
+}
+
+pub struct GeoJsonUniqueSpecies {
+    geojson_features: Vec<geojson::Feature>,
+}
+
+impl Operation for GeoJsonUniqueSpecies {
+    fn visit_geohash_observations(
+        &mut self,
+        geohash: &crate::Geohash,
+        observations: &crate::Observations,
+    ) {
+        let mut geojson_feature = geohash.to_geojson_feature();
+        let species_count = crate::observations_species_count(observations);
+        if let Some(properties) = &mut geojson_feature.properties {
+            properties.insert("species count".into(), species_count.into());
+        }
+        self.geojson_features.push(geojson_feature);
+    }
+
+    fn finish(&mut self) {
+        let geojson_feature_collection = geojson::FeatureCollection {
+            features: mem::take(&mut self.geojson_features),
+            bbox: None,
+            foreign_members: None,
+        };
+
+        fs::write(
+            "/Users/coreyf/tmp/output.geojson",
+            geojson_feature_collection.to_string(),
+        )
+        .unwrap();
+    }
+}

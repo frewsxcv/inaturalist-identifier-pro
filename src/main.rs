@@ -2,9 +2,11 @@ use geohash_ext::{Geohash, GeohashGrid};
 use std::io::Write;
 use std::{collections, env, error, fs, io, mem, num, path, process};
 use inaturalist::models::Observation;
+use operations::Operation;
 
 mod app;
 mod geohash_ext;
+mod operations;
 
 const PLANTAE_ID: u32 = 47126;
 
@@ -137,8 +139,8 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let grid = GeohashGrid::from_rect(*HARRIMAN_STATE_PARK, 5);
     let grid_count = grid.0.len();
 
-    let mut operation = PrintPlantae;
-    // let mut operation = GeoJsonUniqueSpecies { geojson_features: vec![] };
+    let mut operation = operations::PrintPlantae;
+    // let mut operation = operations::GeoJsonUniqueSpecies { geojson_features: vec![] };
 
     for (i, geohash) in grid.0.into_iter().enumerate() {
         tracing::info!(
@@ -158,51 +160,6 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     process::exit(0);
 }
 
-trait Operation {
-    fn visit_observation(&mut self, _observation: &Observation) {}
-    fn visit_geohash_observations(&mut self, _geohash: &Geohash, _observations: &Observations) {}
-    fn finish(&mut self) {}
-}
-
-struct PrintPlantae;
-
-impl Operation for PrintPlantae {
-    fn visit_observation(&mut self, observation: &Observation) {
-        if let Some(taxon) = &observation.taxon {
-            if taxon.rank == Some("kingdom".to_string()) {
-                println!("{}", observation.uri.as_ref().unwrap());
-            }
-        }
-    }
-}
-
-struct GeoJsonUniqueSpecies {
-    geojson_features: Vec<geojson::Feature>,
-}
-
-impl Operation for GeoJsonUniqueSpecies {
-    fn visit_geohash_observations(&mut self, geohash: &Geohash, observations: &Observations) {
-        let mut geojson_feature = geohash.to_geojson_feature();
-        let species_count = observations_species_count(observations);
-        if let Some(properties) = &mut geojson_feature.properties {
-            properties.insert("species count".into(), species_count.into());
-        }
-        self.geojson_features.push(geojson_feature);
-    }
-
-    fn finish(&mut self) {
-        let geojson_feature_collection = geojson::FeatureCollection {
-            features: mem::take(&mut self.geojson_features),
-            bbox: None,
-            foreign_members: None,
-        };
-
-        fs::write(
-            "/Users/coreyf/tmp/output.geojson",
-            geojson_feature_collection.to_string(),
-        ).unwrap();
-    }
-}
 
 struct SubdividedRect(Rect);
 
