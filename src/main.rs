@@ -1,11 +1,14 @@
 use geohash_ext::{Geohash, GeohashGrid};
 use std::io::Write;
-use std::{collections, env, error, io, num, path, process};
+use std::{collections, error, io, num, process};
 use inaturalist::models::Observation;
 use operations::Operation;
+use geohash_observations::GeohashObservations;
 
 mod app;
 mod geohash_ext;
+mod geohash_observations;
+mod places;
 mod operations;
 
 const PLANTAE_ID: u32 = 47126;
@@ -29,98 +32,6 @@ lazy_static::lazy_static! {
         governor::clock::DefaultClock,
     > =
         governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
-
-    static ref HARRIMAN_STATE_PARK: Rect = geo::Rect::new(
-        geo::coord! {
-            x: ordered_float::OrderedFloat(-74.26345825195312),
-            y: ordered_float::OrderedFloat(41.101086483800515),
-        },
-        geo::coord! {
-            x: ordered_float::OrderedFloat(-73.948873),
-            y: ordered_float::OrderedFloat(41.34124700339191)
-        },
-    );
-
-    static ref BROOKLYN: Rect = geo::Rect::new(
-        geo::coord! {
-            x: ordered_float::OrderedFloat(-74.046000f64),
-            y: ordered_float::OrderedFloat(40.567),
-        },
-        geo::coord! {
-            x: ordered_float::OrderedFloat(-73.9389741f64),
-            y: ordered_float::OrderedFloat(40.6942535f64),
-        },
-    );
-
-    static ref NYC: Rect = geo::Rect::new(
-        geo::coord! {
-            x: ordered_float::OrderedFloat(-74.258019),
-            y: ordered_float::OrderedFloat(40.490742)
-        },
-        geo::coord! {
-            x: ordered_float::OrderedFloat(-73.555615),
-            y: ordered_float::OrderedFloat(41.017433)
-        },
-    );
-}
-
-struct GeohashObservations(Geohash);
-
-impl GeohashObservations {
-    async fn fetch(&self) -> Result<Observations, Box<dyn error::Error>> {
-        if let Ok(Some(observations)) = self.fetch_from_cache().await {
-            return Ok(observations);
-        }
-
-        let observations = self.fetch_from_api().await?;
-        self.write_to_cache(&observations).await?;
-        Ok(observations)
-    }
-
-    async fn fetch_from_cache(&self) -> Result<Option<Observations>, Box<dyn error::Error>> {
-        let path = self.cache_path().await?;
-        tracing::info!("Loading cache... ({})", path.display());
-        if !path.exists() {
-            return Ok(None);
-        }
-        let file = tokio::fs::File::open(path).await?;
-        let cache = serde_json::from_reader(file.into_std().await)?;
-        tracing::info!("Fetched old cache");
-        Ok(Some(cache))
-    }
-
-    async fn fetch_from_api(&self) -> Result<Observations, Box<dyn error::Error>> {
-        let subdivided_rects = subdivide_rect(self.0.bounding_rect).await?;
-        let num_rects = subdivided_rects.len();
-        let mut observations = Vec::with_capacity(subdivided_rects.len());
-        for (i, s) in subdivided_rects.into_iter().enumerate() {
-            tracing::info!("Fetch tile ({} / {})", i + 1, num_rects);
-            observations.append(&mut fetch(s.0).await?);
-        }
-        Ok(observations)
-    }
-
-    async fn cache_dir() -> Result<path::PathBuf, Box<dyn error::Error>> {
-        let path = env::temp_dir().join("inaturalist-request-cache");
-        if !path.exists() {
-            tokio::fs::create_dir_all(&path).await?;
-        }
-        Ok(path)
-    }
-
-    async fn cache_path(&self) -> Result<path::PathBuf, Box<dyn error::Error>> {
-        Ok(Self::cache_dir().await?.join(&self.0.string))
-    }
-
-    async fn write_to_cache(&self, observations: &Observations) -> Result<(), Box<dyn error::Error>> {
-        let file = tokio::fs::File::create(self.cache_path().await?).await?;
-        tracing::info!("Writing cache...");
-        let _ = io::stdout().flush();
-        serde_json::to_writer(file.into_std().await, &observations)?;
-        tracing::info!("done");
-        let _ = io::stdout().flush();
-        Ok(())
-    }
 }
 
 #[tokio::main]
@@ -136,7 +47,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     );
     */
 
-    let grid = GeohashGrid::from_rect(*HARRIMAN_STATE_PARK, 5);
+    let grid = GeohashGrid::from_rect(*places::HARRIMAN_STATE_PARK, 5);
     let grid_count = grid.0.len();
 
     let mut operation = operations::PrintPlantae;
@@ -159,7 +70,6 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     process::exit(0);
 }
-
 
 struct SubdividedRect(Rect);
 
