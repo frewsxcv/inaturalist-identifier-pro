@@ -1,4 +1,4 @@
-use std::{fs, mem};
+use std::{fmt::Write, fs, mem};
 
 pub trait Operation {
     fn visit_observation(&mut self, _observation: &crate::Observation) {}
@@ -11,15 +11,20 @@ pub trait Operation {
     fn finish(&mut self) {}
 }
 
-pub struct PrintPlantae;
+#[derive(Default)]
+pub struct PrintPlantae(String);
 
 impl Operation for PrintPlantae {
     fn visit_observation(&mut self, observation: &crate::Observation) {
         if let Some(taxon) = &observation.taxon {
             if taxon.rank == Some("kingdom".to_string()) {
-                println!("{}", observation.uri.as_ref().unwrap());
+                writeln!(self.0, "{}", observation.uri.as_ref().unwrap()).unwrap();
             }
         }
+    }
+
+    fn finish(&mut self) {
+        println!("{}", self.0);
     }
 }
 

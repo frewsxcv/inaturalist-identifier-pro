@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let grid = GeohashGrid::from_rect(*places::HARRIMAN_STATE_PARK, 5);
     let grid_count = grid.0.len();
 
-    let mut operation = operations::PrintPlantae;
+    let mut operation = operations::PrintPlantae::default();
     // let mut operation = operations::GeoJsonUniqueSpecies { geojson_features: vec![] };
 
     for (i, geohash) in grid.0.into_iter().enumerate() {
