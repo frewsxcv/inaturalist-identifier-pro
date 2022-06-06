@@ -1,15 +1,15 @@
 use geohash_ext::{Geohash, GeohashGrid};
-use std::io::Write;
-use std::{collections, error, io, num, process};
+use geohash_observations::GeohashObservations;
 use inaturalist::models::Observation;
 use operations::Operation;
-use geohash_observations::GeohashObservations;
+use std::io::Write;
+use std::{collections, error, io, num, process, sync};
 
 mod app;
 mod geohash_ext;
 mod geohash_observations;
-mod places;
 mod operations;
+mod places;
 
 const PLANTAE_ID: u32 = 47126;
 
@@ -41,23 +41,34 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let grid = GeohashGrid::from_rect(*places::HARRIMAN_STATE_PARK, 5);
     let grid_count = grid.0.len();
 
-    let mut operation = operations::PrintPlantae::default();
+    let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::PrintPlantae::default()));
     // let mut operation = operations::GeoJsonUniqueSpecies { geojson_features: vec![] };
 
+    let mut join_handles = vec![];
     for (i, geohash) in grid.0.into_iter().enumerate() {
-        tracing::info!(
-            "Fetch observations for geohash {} ({} / {})",
-            geohash.string,
-            i + 1,
-            grid_count
-        );
-        let observations = GeohashObservations(geohash.clone()).fetch().await?;
-        operation.visit_geohash_observations(&geohash, &observations);
-        for observation in observations {
-            operation.visit_observation(&observation);
-        }
+        let operation = operation.clone();
+        join_handles.push(tokio::spawn(async move {
+            let geohash = geohash.clone();
+            tracing::info!(
+                "Fetch observations for geohash {} ({} / {})",
+                geohash.string,
+                i + 1,
+                grid_count
+            );
+            let observations = GeohashObservations(geohash.clone()).fetch().await.unwrap();
+            {
+                let mut lock = operation.lock().await;
+                lock.visit_geohash_observations(&geohash, &observations);
+                for observation in observations {
+                    lock.visit_observation(&observation);
+                }
+            }
+        }));
     }
-    operation.finish();
+    for join_handle in join_handles {
+        join_handle.await.unwrap();
+    }
+    operation.lock().await.finish();
 
     process::exit(0);
 }

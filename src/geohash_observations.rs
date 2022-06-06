@@ -54,7 +54,8 @@ impl GeohashObservations {
         &self,
         observations: &Observations,
     ) -> Result<(), Box<dyn error::Error>> {
-        let file = tokio::fs::File::create(self.cache_path().await?).await?;
+        let cache_path = self.cache_path().await?;
+        let file = tokio::fs::File::create(cache_path).await?;
         tracing::info!("Writing cache...");
         let _ = io::stdout().flush();
         serde_json::to_writer(file.into_std().await, &observations)?;
