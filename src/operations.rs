@@ -1,4 +1,4 @@
-use std::{fmt::Write, fs, mem};
+use std::{fs, mem};
 
 pub trait Operation {
     fn visit_observation(&mut self, _observation: &crate::Observation) {}
@@ -12,19 +12,25 @@ pub trait Operation {
 }
 
 #[derive(Default)]
-pub struct PrintPlantae(String);
+pub struct PrintPlantae(Vec<String>);
 
 impl Operation for PrintPlantae {
     fn visit_observation(&mut self, observation: &crate::Observation) {
         if let Some(taxon) = &observation.taxon {
-            if taxon.rank == Some("kingdom".to_string()) {
-                writeln!(self.0, "{}", observation.uri.as_ref().unwrap()).unwrap();
+            if taxon.rank == Some("kingdom".to_string()) && observation.captive == Some(false) {
+                self.0.push(observation.uri.as_ref().unwrap().into());
             }
         }
     }
 
     fn finish(&mut self) {
-        println!("{}", self.0);
+        let native_options = eframe::NativeOptions::default();
+        let urls = self.0.clone();
+        eframe::run_native(
+            "eframe template",
+            native_options,
+            Box::new(|_| Box::new(crate::app::TemplateApp::new(urls))),
+        );
     }
 }
 
