@@ -49,12 +49,12 @@ impl eframe::App for TemplateApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-
-            ui.heading("Results");
-            for url in display_string {
-                ui.hyperlink(url);
-            }
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.heading("Results");
+                for url in display_string {
+                    ui.hyperlink(url);
+                }
+            });
         });
     }
 }
