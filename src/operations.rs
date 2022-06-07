@@ -1,4 +1,5 @@
-use std::{fs, mem};
+use inaturalist::models::Observation;
+use std::{collections, fs, mem};
 
 pub trait Operation {
     fn visit_observation(&mut self, _observation: &crate::Observation) {}
@@ -45,7 +46,7 @@ impl Operation for GeoJsonUniqueSpecies {
         observations: &crate::Observations,
     ) {
         let mut geojson_feature = geohash.to_geojson_feature();
-        let species_count = crate::observations_species_count(observations);
+        let species_count = observations_species_count(observations);
         if let Some(properties) = &mut geojson_feature.properties {
             properties.insert("species count".into(), species_count.into());
         }
@@ -65,4 +66,14 @@ impl Operation for GeoJsonUniqueSpecies {
         )
         .unwrap();
     }
+}
+
+fn observations_species_count(observations: &[Observation]) -> usize {
+    // TODO this should actually be a ratio?
+    observations
+        .iter()
+        .filter_map(|observation| observation.taxon.as_ref())
+        .map(|taxon| taxon.id)
+        .collect::<collections::HashSet<_>>()
+        .len()
 }

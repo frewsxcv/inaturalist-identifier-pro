@@ -1,6 +1,10 @@
 use crate::geohash_ext::Geohash;
 use crate::Observations;
-use std::{env, io::{self, Write}, error, path};
+use std::{
+    env, error,
+    io::{self, Write},
+    path,
+};
 
 pub struct GeohashObservations(pub Geohash);
 
@@ -28,12 +32,12 @@ impl GeohashObservations {
     }
 
     async fn fetch_from_api(&self) -> Result<Observations, Box<dyn error::Error>> {
-        let subdivided_rects = crate::subdivide_rect(self.0.bounding_rect).await?;
+        let subdivided_rects = crate::fetch::subdivide_rect(self.0.bounding_rect).await?;
         let num_rects = subdivided_rects.len();
         let mut observations = Vec::with_capacity(subdivided_rects.len());
         for (i, s) in subdivided_rects.into_iter().enumerate() {
             tracing::info!("Fetch tile ({} / {})", i + 1, num_rects);
-            observations.append(&mut crate::fetch(s.0).await?);
+            observations.append(&mut crate::fetch::fetch(s.0).await?);
         }
         Ok(observations)
     }

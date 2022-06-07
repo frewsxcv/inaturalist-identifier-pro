@@ -4,9 +4,7 @@ pub struct TemplateApp {
 
 impl TemplateApp {
     pub fn new(display_string: Vec<String>) -> Self {
-        Self {
-            display_string,
-        }
+        Self { display_string }
     }
 }
 
