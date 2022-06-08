@@ -1,14 +1,21 @@
 pub(crate) struct TemplateApp {
-    pub display_string: Vec<String>,
-    pub rx_progress: async_channel::Receiver<crate::Progress>,
+    pub rx_app_message: async_channel::Receiver<crate::AppMessage>,
     pub loaded_geohashes: usize,
     pub total_geohashes: usize,
+    pub results: Vec<String>,
 }
 
 impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        if let Ok(_) = self.rx_progress.try_recv() {
-            self.loaded_geohashes += 1;
+        if let Ok(app_message) = self.rx_app_message.try_recv() {
+            match app_message {
+                crate::AppMessage::Progress => {
+                    self.loaded_geohashes += 1;
+                }
+                crate::AppMessage::Results(results) => {
+                    self.results = results;
+                }
+            }
         }
 
         // Redraw every 1 second
@@ -63,7 +70,7 @@ impl eframe::App for TemplateApp {
                     );
                 } else {
                     ui.heading("Results");
-                    for url in &self.display_string {
+                    for url in &self.results {
                         ui.hyperlink(url);
                     }
                 }

@@ -13,7 +13,7 @@ pub trait Operation {
 }
 
 #[derive(Default)]
-pub struct PrintPlantae(Vec<String>);
+pub struct PrintPlantae(pub Vec<String>);
 
 impl Operation for PrintPlantae {
     fn visit_observation(&mut self, observation: &crate::Observation) {
@@ -22,10 +22,6 @@ impl Operation for PrintPlantae {
                 self.0.push(observation.uri.as_ref().unwrap().into());
             }
         }
-    }
-
-    fn finish(&mut self) {
-        println!("{:?}", self.0);
     }
 }
 

@@ -15,7 +15,10 @@ type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 type Observations = Vec<Observation>;
 
 #[derive(Debug)]
-struct Progress(f32);
+enum AppMessage {
+    Progress,
+    Results(Vec<String>),
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
@@ -27,7 +30,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::PrintPlantae::default()));
     // let mut operation = operations::GeoJsonUniqueSpecies { geojson_features: vec![] };
 
-    let (tx, rx) = async_channel::unbounded::<Progress>();
+    let (tx, rx_app_message) = async_channel::unbounded::<AppMessage>();
 
     let total_geohashes = grid.0.len();
 
@@ -52,25 +55,24 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                         lock.visit_observation(&observation);
                     }
                 }
-                tx.send(Progress(i as f32)).await.unwrap();
+                tx.send(AppMessage::Progress).await.unwrap();
             }));
         }
         for join_handle in join_handles {
             join_handle.await.unwrap();
         }
         operation.lock().await.finish();
+        tx.send(AppMessage::Results(std::mem::take(&mut operation.lock().await.0))).await.unwrap();
     });
 
-    let native_options = eframe::NativeOptions::default();
-    let urls = vec![];
     eframe::run_native(
         "eframe template",
-        native_options,
+        eframe::NativeOptions::default(),
         Box::new(move |_| Box::new(crate::app::TemplateApp {
-            display_string: urls,
-            rx_progress: rx,
+            rx_app_message,
             loaded_geohashes: 0,
             total_geohashes,
+            results: vec![],
         })),
     );
 }
