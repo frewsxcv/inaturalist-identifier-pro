@@ -63,11 +63,9 @@ impl eframe::App for TemplateApp {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 if self.loaded_geohashes < self.total_geohashes {
                     ui.heading("Loading data");
-                    ui.add(
-                        egui::ProgressBar::new(
-                            self.loaded_geohashes as f32 / self.total_geohashes as f32,
-                        )
-                    );
+                    ui.add(egui::ProgressBar::new(
+                        self.loaded_geohashes as f32 / self.total_geohashes as f32,
+                    ));
                 } else {
                     ui.heading("Results");
                     for url in &self.results {

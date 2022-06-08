@@ -62,17 +62,23 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             join_handle.await.unwrap();
         }
         operation.lock().await.finish();
-        tx.send(AppMessage::Results(std::mem::take(&mut operation.lock().await.0))).await.unwrap();
+        tx.send(AppMessage::Results(std::mem::take(
+            &mut operation.lock().await.0,
+        )))
+        .await
+        .unwrap();
     });
 
     eframe::run_native(
         "eframe template",
         eframe::NativeOptions::default(),
-        Box::new(move |_| Box::new(crate::app::TemplateApp {
-            rx_app_message,
-            loaded_geohashes: 0,
-            total_geohashes,
-            results: vec![],
-        })),
+        Box::new(move |_| {
+            Box::new(crate::app::TemplateApp {
+                rx_app_message,
+                loaded_geohashes: 0,
+                total_geohashes,
+                results: vec![],
+            })
+        }),
     );
 }
