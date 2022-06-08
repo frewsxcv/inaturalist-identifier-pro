@@ -1,8 +1,10 @@
+use inaturalist::models::Observation;
+
 pub(crate) struct TemplateApp {
     pub rx_app_message: async_channel::Receiver<crate::AppMessage>,
     pub loaded_geohashes: usize,
     pub total_geohashes: usize,
-    pub results: Vec<String>,
+    pub results: Vec<Observation>,
 }
 
 impl eframe::App for TemplateApp {
@@ -68,8 +70,12 @@ impl eframe::App for TemplateApp {
                     ));
                 } else {
                     ui.heading("Results");
-                    for url in &self.results {
-                        ui.hyperlink(url);
+                    for observation in &self.results {
+                        ui.hyperlink(observation.uri.as_ref().unwrap());
+                        if let Some(photos) = &observation.photos {
+                            ui.hyperlink(photos[0].url.as_ref().unwrap().replace("square", "medium"));
+                        }
+                        ui.separator();
                     }
                 }
             });

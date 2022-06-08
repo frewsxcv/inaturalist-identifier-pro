@@ -13,13 +13,13 @@ pub trait Operation {
 }
 
 #[derive(Default)]
-pub struct PrintPlantae(pub Vec<String>);
+pub struct PrintPlantae(pub Vec<Observation>);
 
 impl Operation for PrintPlantae {
     fn visit_observation(&mut self, observation: &crate::Observation) {
         if let Some(taxon) = &observation.taxon {
             if taxon.rank == Some("kingdom".to_string()) && observation.captive == Some(false) {
-                self.0.push(observation.uri.as_ref().unwrap().into());
+                self.0.push(observation.clone());
             }
         }
     }

@@ -17,7 +17,7 @@ type Observations = Vec<Observation>;
 #[derive(Debug)]
 enum AppMessage {
     Progress,
-    Results(Vec<String>),
+    Results(Vec<Observation>),
 }
 
 #[tokio::main]
