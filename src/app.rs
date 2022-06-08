@@ -1,16 +1,22 @@
-pub struct TemplateApp {
-    display_string: Vec<String>,
-}
-
-impl TemplateApp {
-    pub fn new(display_string: Vec<String>) -> Self {
-        Self { display_string }
-    }
+pub(crate) struct TemplateApp {
+    pub display_string: Vec<String>,
+    pub rx_progress: async_channel::Receiver<crate::Progress>,
+    pub loaded_geohashes: usize,
+    pub total_geohashes: usize,
 }
 
 impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let Self { display_string } = self;
+        if let Ok(_) = self.rx_progress.try_recv() {
+            self.loaded_geohashes += 1;
+        }
+
+        // Redraw every 1 second
+        let cloned_ctx = ctx.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            cloned_ctx.request_repaint();
+        });
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -48,9 +54,18 @@ impl eframe::App for TemplateApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.heading("Results");
-                for url in display_string {
-                    ui.hyperlink(url);
+                if self.loaded_geohashes < self.total_geohashes {
+                    ui.heading("Loading data");
+                    ui.add(
+                        egui::ProgressBar::new(
+                            self.loaded_geohashes as f32 / self.total_geohashes as f32,
+                        )
+                    );
+                } else {
+                    ui.heading("Results");
+                    for url in &self.display_string {
+                        ui.hyperlink(url);
+                    }
                 }
             });
         });

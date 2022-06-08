@@ -25,13 +25,7 @@ impl Operation for PrintPlantae {
     }
 
     fn finish(&mut self) {
-        let native_options = eframe::NativeOptions::default();
-        let urls = self.0.clone();
-        eframe::run_native(
-            "eframe template",
-            native_options,
-            Box::new(|_| Box::new(crate::app::TemplateApp::new(urls))),
-        );
+        println!("{:?}", self.0);
     }
 }
 

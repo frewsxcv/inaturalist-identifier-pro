@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+async-channel = "1"
 async-mutex = "1"
 async-recursion = "1"
 egui = "0.18.0"
