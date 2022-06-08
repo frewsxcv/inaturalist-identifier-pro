@@ -1,10 +1,12 @@
 use inaturalist::models::Observation;
+use std::{sync, thread};
 
 pub(crate) struct TemplateApp {
     pub rx_app_message: async_channel::Receiver<crate::AppMessage>,
     pub loaded_geohashes: usize,
     pub total_geohashes: usize,
     pub results: Vec<Observation>,
+    pub image_store: sync::Arc<sync::RwLock<crate::image_store::ImageStore>>,
 }
 
 impl eframe::App for TemplateApp {
@@ -14,16 +16,36 @@ impl eframe::App for TemplateApp {
                 crate::AppMessage::Progress => {
                     self.loaded_geohashes += 1;
                 }
-                crate::AppMessage::Results(results) => {
-                    self.results = results;
+                crate::AppMessage::Results(observations) => {
+                    let image_store = self.image_store.clone();
+                    self.results = observations.clone();
+                    thread::spawn(move || {
+                        for observation in observations {
+                            if let Some(photos) = &observation.photos {
+                                let image_url =
+                                    photos[0].url.as_ref().unwrap().replace("square", "medium");
+                                let request = ehttp::Request::get(image_url);
+                                let image_store = image_store.clone();
+                                ehttp::fetch(request, move |response| {
+                                    let image = response.and_then(parse_response);
+                                    image_store
+                                        .write()
+                                        .unwrap()
+                                        .insert(observation.id.unwrap(), image.unwrap());
+                                    // ctx.request_repaint();
+                                });
+                            }
+                        }
+                        // image_store.begin_loading(results);
+                    });
                 }
             }
         }
 
         // Redraw every 1 second
         let cloned_ctx = ctx.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_secs(1));
+        thread::spawn(move || {
+            thread::sleep(std::time::Duration::from_secs(1));
             cloned_ctx.request_repaint();
         });
 
@@ -72,13 +94,32 @@ impl eframe::App for TemplateApp {
                     ui.heading("Results");
                     for observation in &self.results {
                         ui.hyperlink(observation.uri.as_ref().unwrap());
-                        if let Some(photos) = &observation.photos {
-                            ui.hyperlink(photos[0].url.as_ref().unwrap().replace("square", "medium"));
+                        if let Some(image) = self
+                            .image_store
+                            .read()
+                            .unwrap()
+                            .load(observation.id.unwrap())
+                        {
+                            image.show(ui);
+                        } else {
+                            ui.spinner();
                         }
                         ui.separator();
                     }
                 }
             });
         });
+    }
+}
+
+fn parse_response(response: ehttp::Response) -> Result<egui_extras::RetainedImage, String> {
+    let content_type = response.content_type().unwrap_or_default();
+    if content_type.starts_with("image/") {
+        egui_extras::RetainedImage::from_image_bytes(&response.url, &response.bytes)
+    } else {
+        Err(format!(
+            "Expected image, found content-type {:?}",
+            content_type
+        ))
     }
 }

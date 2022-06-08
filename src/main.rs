@@ -8,6 +8,7 @@ mod app;
 mod fetch;
 mod geohash_ext;
 mod geohash_observations;
+mod image_store;
 mod operations;
 mod places;
 
@@ -78,6 +79,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                 loaded_geohashes: 0,
                 total_geohashes,
                 results: vec![],
+                image_store: sync::Arc::new(sync::RwLock::new(image_store::ImageStore::default())),
             })
         }),
     );
