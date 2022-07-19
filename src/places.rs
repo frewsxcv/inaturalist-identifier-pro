@@ -23,6 +23,17 @@ lazy_static::lazy_static! {
         },
     );
 
+    pub static ref PROSPECT_PARK: Rect = geo::Rect::new(
+        geo::coord! {
+            x: ordered_float::OrderedFloat(-73.979336),
+            y: ordered_float::OrderedFloat(40.650289),
+        },
+        geo::coord! {
+            x: ordered_float::OrderedFloat(-73.9722377),
+            y: ordered_float::OrderedFloat(40.6594511),
+        },
+    );
+
     pub static ref NYC: Rect = geo::Rect::new(
         geo::coord! {
             x: ordered_float::OrderedFloat(-74.258019),
