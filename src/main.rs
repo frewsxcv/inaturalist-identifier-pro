@@ -2,7 +2,7 @@ use geohash_ext::{Geohash, GeohashGrid};
 use geohash_observations::GeohashObservations;
 use inaturalist::models::Observation;
 use operations::Operation;
-use std::{error, sync};
+use std::{error, sync, time};
 
 mod app;
 mod fetch;
@@ -48,7 +48,23 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                     i + 1,
                     grid_count
                 );
-                let observations = GeohashObservations(geohash.clone()).fetch().await.unwrap();
+                let mut observations;
+                loop {
+                    match GeohashObservations(geohash.clone()).fetch().await {
+                        Ok(o) => {
+                            observations = o;
+                            break;
+                        }
+                        Err(_) => {
+                            tracing::info!(
+                                "Encountered an error when fetching. Trying again. {:?}",
+                                (),
+                            );
+                            tokio::time::sleep(time::Duration::from_secs(5)).await;
+                            continue;
+                        }
+                    };
+                }
                 {
                     let mut lock = operation.lock().await;
                     lock.visit_geohash_observations(&geohash, &observations);
