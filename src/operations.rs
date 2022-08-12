@@ -67,3 +67,42 @@ fn observations_species_count(observations: &[Observation]) -> usize {
         .collect::<collections::HashSet<_>>()
         .len()
 }
+
+#[derive(Default)]
+pub struct TopObservationsPerTile {
+    observations: collections::HashMap<crate::Geohash, GeohashTopObservers>,
+}
+
+impl Operation for TopObservationsPerTile {
+    fn visit_geohash_observations(
+        &mut self,
+        geohash: &crate::Geohash,
+        observations: &crate::Observations,
+    ) {
+        self.observations.insert(geohash.clone(), observations_top_observers(observations));
+    }
+
+    fn finish(&mut self) {
+        println!("{:?}", self.observations);
+    }
+}
+
+type GeohashTopObservers = collections::HashMap<String, usize>;
+
+fn observations_top_observers(observations: &[Observation]) -> GeohashTopObservers {
+    let mut map = collections::HashMap::new();
+    for observation in observations.iter() {
+        *map.entry(
+            observation
+                .user
+                .as_ref()
+                .expect("could not fetch user")
+                .login
+                .as_ref()
+                .expect("could not fetch user's login")
+                .clone(),
+        )
+        .or_default() += 1;
+    }
+    map
+}
