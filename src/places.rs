@@ -1,6 +1,17 @@
 use crate::Rect;
 
 lazy_static::lazy_static! {
+    pub static ref INDIAN_LAKE: Rect = geo::Rect::new(
+        geo::coord! {
+            x: ordered_float::OrderedFloat(-74.3812336),
+            y: ordered_float::OrderedFloat(43.6464133),
+        },
+        geo::coord! {
+            x: ordered_float::OrderedFloat(-74.270485),
+            y: ordered_float::OrderedFloat(43.756746),
+        },
+    );
+
     pub static ref HARRIMAN_STATE_PARK: Rect = geo::Rect::new(
         geo::coord! {
             x: ordered_float::OrderedFloat(-74.26345825195312),
