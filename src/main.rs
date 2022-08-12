@@ -48,7 +48,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                     i + 1,
                     grid_count
                 );
-                let mut observations;
+                let observations;
                 loop {
                     match GeohashObservations(geohash.clone()).fetch().await {
                         Ok(o) => {
