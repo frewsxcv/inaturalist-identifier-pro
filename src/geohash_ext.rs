@@ -1,6 +1,6 @@
 use geo::Convert;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Geohash {
     pub string: String,
     pub bounding_rect: crate::Rect,
