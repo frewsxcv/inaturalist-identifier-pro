@@ -1,8 +1,8 @@
 use crate::geohash_ext::Geohash;
+use crate::rect_cache;
 use crate::Observations;
 use std::{
-    collections, env,
-    hash::{Hash, Hasher},
+    env,
     io::{self, Write},
     path,
 };
@@ -73,15 +73,15 @@ impl GeohashObservations {
         for (i, s) in subdivided_rects.into_iter().enumerate() {
             tracing::info!("Fetch tile ({} / {})", i + 1, num_rects);
 
-            observations.append(&mut match fetch_from_rect_cache(s.0).await.unwrap() { // TODO no unwrap
+            observations.append(&mut match rect_cache::fetch(s.0).await.unwrap() {
+                // TODO no unwrap
                 Some(cached) => cached,
                 None => {
                     let fetched = crate::fetch::fetch(s.0).await?;
-                    write_to_rect_cache(s.0, &fetched).await.unwrap(); // TODO no unwrap
+                    rect_cache::write(s.0, &fetched).await.unwrap(); // TODO no unwrap
                     fetched
                 }
             });
-
         }
         Ok(observations)
     }
@@ -111,49 +111,4 @@ impl GeohashObservations {
         let _ = io::stdout().flush();
         Ok(())
     }
-}
-
-async fn fetch_from_rect_cache(
-    rect: geo::Rect<ordered_float::OrderedFloat<f64>>,
-) -> Result<Option<Observations>, FetchFromCacheError> {
-    let path = rect_cache_path(rect).await?;
-    tracing::info!("Loading cache... ({})", path.display());
-    if !path.exists() {
-        return Ok(None);
-    }
-    let file = tokio::fs::File::open(path).await?;
-    let cache = serde_json::from_reader(file.into_std().await)?;
-    tracing::info!("Fetched old cache");
-    Ok(Some(cache))
-}
-
-async fn write_to_rect_cache(
-    rect: geo::Rect<ordered_float::OrderedFloat<f64>>,
-    observations: &Observations,
-) -> Result<(), WriteToCacheError> {
-    let cache_path = rect_cache_path(rect).await?;
-    let file = tokio::fs::File::create(cache_path).await?;
-    tracing::info!("Writing cache...");
-    let _ = io::stdout().flush();
-    serde_json::to_writer(file.into_std().await, &observations)?;
-    tracing::info!("done");
-    let _ = io::stdout().flush();
-    Ok(())
-}
-
-async fn rect_cache_dir() -> tokio::io::Result<path::PathBuf> {
-    let path = env::temp_dir().join("inaturalist-rect-request-cache");
-    if !path.exists() {
-        tokio::fs::create_dir_all(&path).await?;
-    }
-    Ok(path)
-}
-
-async fn rect_cache_path(
-    rect: geo::Rect<ordered_float::OrderedFloat<f64>>,
-) -> tokio::io::Result<path::PathBuf> {
-    let mut hasher = collections::hash_map::DefaultHasher::new();
-    rect.hash(&mut hasher);
-    let hash = format!("{}", hasher.finish());
-    Ok(rect_cache_dir().await?.join(&hash))
 }
