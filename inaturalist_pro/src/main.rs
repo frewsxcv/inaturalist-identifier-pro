@@ -21,6 +21,10 @@ enum AppMessage {
     Results(Vec<Observation>),
 }
 
+lazy_static::lazy_static! {
+    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicUsize = sync::atomic::AtomicUsize::new(500);
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
@@ -51,7 +55,9 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                     i + 1,
                     grid_count
                 );
-                let observations = GeohashObservations(geohash).fetch_with_retries().await;
+                let observations = GeohashObservations(geohash)
+                    .fetch_with_retries(&FETCH_SOFT_LIMIT)
+                    .await;
                 {
                     let mut lock = operation.lock().await;
                     lock.visit_geohash_observations(geohash, &observations);

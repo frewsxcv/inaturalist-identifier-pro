@@ -1,10 +1,7 @@
 use crate::geohash_ext::Geohash;
 use crate::rect_cache;
 use crate::Observations;
-use std::{
-    env,
-    path, time,
-};
+use std::{env, path, sync, time};
 
 #[derive(thiserror::Error, Debug)]
 pub enum FetchError {
@@ -43,10 +40,10 @@ pub enum WriteToCacheError {
 pub struct GeohashObservations(pub Geohash);
 
 impl GeohashObservations {
-    pub async fn fetch_with_retries(&self) -> Observations {
+    pub async fn fetch_with_retries(&self, soft_limit: &sync::atomic::AtomicUsize) -> Observations {
         let observations;
         loop {
-            match GeohashObservations(self.0).fetch().await {
+            match GeohashObservations(self.0).fetch(soft_limit).await {
                 Ok(o) => {
                     observations = o;
                     break;
@@ -61,12 +58,16 @@ impl GeohashObservations {
         observations
     }
 
-    pub async fn fetch(&self) -> Result<Observations, FetchError> {
+    pub async fn fetch(
+        &self,
+        soft_limit: &sync::atomic::AtomicUsize,
+    ) -> Result<Observations, FetchError> {
         if let Ok(Some(observations)) = self.fetch_from_cache().await {
+            soft_limit.fetch_sub(observations.len(), sync::atomic::Ordering::Relaxed);
             return Ok(observations);
         }
 
-        let observations = self.fetch_from_api().await?;
+        let observations = self.fetch_from_api(soft_limit).await?;
         self.write_to_geohash_cache(&observations).await?;
         Ok(observations)
     }
@@ -84,14 +85,21 @@ impl GeohashObservations {
         Ok(Some(cache))
     }
 
-    async fn fetch_from_api(&self) -> Result<Observations, FetchFromApiError> {
+    async fn fetch_from_api(
+        &self,
+        soft_limit: &sync::atomic::AtomicUsize,
+    ) -> Result<Observations, FetchFromApiError> {
         let subdivided_rects = inaturalist_fetch::subdivide_rect(self.0.bounding_rect).await?;
         let num_rects = subdivided_rects.len();
         let mut observations = Vec::with_capacity(subdivided_rects.len());
         for (i, s) in subdivided_rects.into_iter().enumerate() {
             tracing::info!("Fetch tile ({} / {})", i + 1, num_rects);
 
-            observations.append(&mut match rect_cache::fetch(s.0).await.unwrap() {
+            if observations.len() > soft_limit.load(sync::atomic::Ordering::Relaxed) {
+                break;
+            }
+
+            let mut fetched = match rect_cache::fetch(s.0).await.unwrap() {
                 // TODO no unwrap
                 Some(cached) => cached,
                 None => {
@@ -99,7 +107,11 @@ impl GeohashObservations {
                     rect_cache::write(s.0, &fetched).await.unwrap(); // TODO no unwrap
                     fetched
                 }
-            });
+            };
+
+            soft_limit.fetch_sub(observations.len(), sync::atomic::Ordering::Relaxed);
+
+            observations.append(&mut fetched);
         }
         Ok(observations)
     }
