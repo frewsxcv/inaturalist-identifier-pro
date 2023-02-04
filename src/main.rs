@@ -2,7 +2,7 @@ use geohash_ext::{Geohash, GeohashGrid};
 use geohash_observations::GeohashObservations;
 use inaturalist::models::Observation;
 use operations::Operation;
-use std::{error, sync, time};
+use std::{error, sync};
 
 mod app;
 mod fetch;
