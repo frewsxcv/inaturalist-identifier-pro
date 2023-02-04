@@ -33,10 +33,11 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     // let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::TopObservationsPerTile::default()));
     // let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::PrintPlantae::default()));
-    let operation = sync::Arc::new(tokio::sync::Mutex::new(
-        operations::PrintAngiospermae::default(),
-    ));
+    // let operation = sync::Arc::new(tokio::sync::Mutex::new(
+    //     operations::PrintAngiospermae::default(),
+    // ));
     // let mut operation = operations::GeoJsonUniqueSpecies { geojson_features: vec![] };
+    let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::NoOp(vec![])));
 
     let (tx, rx_app_message) = async_channel::unbounded::<AppMessage>();
 

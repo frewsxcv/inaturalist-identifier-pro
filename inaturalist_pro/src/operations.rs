@@ -13,6 +13,15 @@ pub trait Operation {
 }
 
 #[derive(Default)]
+pub struct NoOp(pub Vec<Observation>);
+
+impl Operation for NoOp {
+    fn visit_observation(&mut self, observation: &crate::Observation) {
+        self.0.push(observation.clone());
+    }
+}
+
+#[derive(Default)]
 pub struct PrintPlantae(pub Vec<Observation>);
 
 impl Operation for PrintPlantae {
