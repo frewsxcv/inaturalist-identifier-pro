@@ -7,7 +7,7 @@ publish = false
 [dependencies]
 async-recursion = "1"
 geo = "0.23"
-governor = "0.4"
+governor = "0.5"
 inaturalist = "0.3"
 lazy_static = "1"
 ordered-float = { version = "3", features = ["serde"] }
