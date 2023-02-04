@@ -9,9 +9,9 @@ async-channel = "1"
 async-mutex = "1"
 async-recursion = "1"
 ehttp = "0.2"
-egui = "0.18"
-egui_extras = { version = "0.18.0", features = ["image"] }
-eframe = { version = "0.18", features = ["dark-light", "persistence"] }
+egui = "0.20"
+egui_extras = { version = "0.20.0", features = ["image"] }
+eframe = { version = "0.20", features = ["dark-light", "persistence"] }
 geo = { version = "0.23", features = ["use-serde"] }
 geohash = "0.13"
 geojson = { version = "0.24", features = ["geo-types"] }
