@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     tokio::task::spawn(async move {
         let mut join_handles = vec![];
-        for (i, geohash) in grid.0.into_iter().take(1).enumerate() {
+        for (i, geohash) in grid.0.into_iter().enumerate() {
             let operation = operation.clone();
             let tx = tx.clone();
             join_handles.push(tokio::spawn(async move {
@@ -67,6 +67,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             join_handle.await.unwrap();
         }
         operation.lock().await.finish();
+        tracing::info!("Finished loading thread");
         tx.send(AppMessage::Results(std::mem::take(
             &mut operation.lock().await.0,
         )))
