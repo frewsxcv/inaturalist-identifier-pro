@@ -1520,9 +1520,9 @@ dependencies = [
  "geo",
  "geohash",
  "geojson",
- "governor",
  "image",
  "inaturalist",
+ "inaturalist-fetch",
  "lazy_static",
  "ordered-float",
  "serde",
@@ -1531,6 +1531,19 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "inaturalist-fetch"
+version = "0.1.0"
+dependencies = [
+ "async-recursion",
+ "geo",
+ "governor",
+ "inaturalist",
+ "lazy_static",
+ "ordered-float",
+ "tracing",
 ]
 
 [[package]]

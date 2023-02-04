@@ -86,7 +86,7 @@ impl GeohashObservations {
     }
 
     async fn fetch_from_api(&self) -> Result<Observations, FetchFromApiError> {
-        let subdivided_rects = crate::fetch::subdivide_rect(self.0.bounding_rect).await?;
+        let subdivided_rects = inaturalist_fetch::subdivide_rect(self.0.bounding_rect).await?;
         let num_rects = subdivided_rects.len();
         let mut observations = Vec::with_capacity(subdivided_rects.len());
         for (i, s) in subdivided_rects.into_iter().enumerate() {
@@ -96,7 +96,7 @@ impl GeohashObservations {
                 // TODO no unwrap
                 Some(cached) => cached,
                 None => {
-                    let fetched = crate::fetch::fetch(s.0).await?;
+                    let fetched = inaturalist_fetch::fetch(s.0).await?;
                     rect_cache::write(s.0, &fetched).await.unwrap(); // TODO no unwrap
                     fetched
                 }

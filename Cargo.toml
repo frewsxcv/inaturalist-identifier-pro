@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "inaturalist-fetch",
     "inaturalist_pro",
 ]
 resolver = "2"

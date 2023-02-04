@@ -1,5 +1,6 @@
-use crate::Rect;
 use std::num;
+
+type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
 const PLANTAE_ID: u32 = 47126;
 

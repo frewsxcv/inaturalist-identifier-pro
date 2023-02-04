@@ -5,7 +5,6 @@ use operations::Operation;
 use std::{error, sync};
 
 mod app;
-mod fetch;
 mod geohash_ext;
 mod geohash_observations;
 mod image_store;
