@@ -1,28 +1,5 @@
-[package]
-name = "inaturalist-biodiversity"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-arrayvec = "0.7"
-async-channel = "1"
-async-mutex = "1"
-async-recursion = "1"
-ehttp = "0.2"
-egui = "0.18.0"
-egui_extras = { version = "0.18.0", features = ["image"] }
-eframe = { version = "0.18.0", features = ["dark-light", "persistence"] }
-geo = { version = "0.23", features = ["use-serde"] }
-geohash = "0.13"
-geojson = { version = "0.24", features = ["geo-types"] }
-governor = "0.4"
-image = { version = "0.24", features = ["jpeg", "png"] }
-inaturalist = "0.2"
-lazy_static = "1"
-ordered-float = { version = "3", features = ["serde"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-thiserror = "1"
-tokio = { version = "1", features = ["full"] }
-tracing = "0.1"
-tracing-subscriber = "0.3"
+[workspace]
+members = [
+    "inaturalist_pro",
+]
+resolver = "2"
