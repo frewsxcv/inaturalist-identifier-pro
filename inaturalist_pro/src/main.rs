@@ -1,3 +1,5 @@
+#![feature(async_fn_in_trait)]
+
 use geohash_ext::{Geohash, GeohashGrid};
 use geohash_observations::GeohashObservations;
 use inaturalist::models::Observation;
@@ -38,6 +40,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     // ));
     // let mut operation = operations::GeoJsonUniqueSpecies { geojson_features: vec![] };
     // let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::NoOp(vec![])));
+
     let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::TopImageScore(vec![])));
 
     let (tx, rx_app_message) = async_channel::unbounded::<AppMessage>();
@@ -61,9 +64,9 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                     .await;
                 {
                     let mut lock = operation.lock().await;
-                    lock.visit_geohash_observations(geohash, &observations);
+                    lock.visit_geohash_observations(geohash, &observations).await;
                     for observation in observations {
-                        lock.visit_observation(&observation);
+                        lock.visit_observation(&observation).await;
                     }
                 }
                 tx.send(AppMessage::Progress).await.unwrap();
