@@ -8,6 +8,7 @@ arrayvec = "0.7"
 async-channel = "1"
 async-mutex = "1"
 async-recursion = "1"
+bincode = "1"
 ehttp = "0.2"
 egui = "0.18.0"
 egui_extras = { version = "0.18.0", features = ["image"] }
