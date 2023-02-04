@@ -1,8 +1,5 @@
 use crate::Rect;
-use std::{
-    io::{self, Write},
-    num,
-};
+use std::num;
 
 const PLANTAE_ID: u32 = 47126;
 
@@ -103,7 +100,6 @@ pub async fn fetch(
 
     for page in 1.. {
         tracing::info!("Fetching observations...");
-        let _ = io::stdout().flush();
         INATURALIST_RATE_LIMITER.until_ready().await;
         let mut response = inaturalist::apis::observations_api::observations_get(
             &INATURALIST_REQUEST_CONFIG,
@@ -111,7 +107,6 @@ pub async fn fetch(
         )
         .await?;
         tracing::info!("done");
-        let _ = io::stdout().flush();
 
         all.append(&mut response.results);
 
