@@ -12,9 +12,9 @@ ehttp = "0.2"
 egui = "0.18.0"
 egui_extras = { version = "0.18.0", features = ["image"] }
 eframe = { version = "0.18.0", features = ["dark-light", "persistence"] }
-geo = { git = "https://github.com/georust/geo.git", features = ["use-serde"] }
+geo = { version = "0.23", features = ["use-serde"] }
 geohash = "0.12"
-geojson = { version = "0.22.4", features = ["geo-types"] }
+geojson = { version = "0.24", features = ["geo-types"] }
 governor = "0.4"
 image = { version = "0.24", features = ["jpeg", "png"] }
 inaturalist = "0.2"
@@ -25,4 +25,4 @@ serde_json = "1"
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
-tracing-subscriber = "0.2"
+tracing-subscriber = "0.3"
