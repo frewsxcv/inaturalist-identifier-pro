@@ -91,7 +91,8 @@ impl Operation for TopObservationsPerTile {
         geohash: &crate::Geohash,
         observations: &crate::Observations,
     ) {
-        self.observations.insert(geohash.clone(), observations_top_observers(observations));
+        self.observations
+            .insert(geohash.clone(), observations_top_observers(observations));
     }
 
     fn finish(&mut self) {

@@ -7,7 +7,7 @@ pub(crate) struct ImageStore {
 
 impl ImageStore {
     pub fn insert(&mut self, observation_id: i32, image: egui_extras::RetainedImage) {
-	let _ = self.hash_map.insert(observation_id, image);
+        let _ = self.hash_map.insert(observation_id, image);
     }
 
     pub fn load(&self, observation_id: i32) -> Option<&egui_extras::RetainedImage> {

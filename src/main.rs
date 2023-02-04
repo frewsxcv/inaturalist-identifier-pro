@@ -31,7 +31,9 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     // let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::TopObservationsPerTile::default()));
     // let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::PrintPlantae::default()));
-    let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::PrintAngiospermae::default()));
+    let operation = sync::Arc::new(tokio::sync::Mutex::new(
+        operations::PrintAngiospermae::default(),
+    ));
     // let mut operation = operations::GeoJsonUniqueSpecies { geojson_features: vec![] };
 
     let (tx, rx_app_message) = async_channel::unbounded::<AppMessage>();
@@ -51,7 +53,9 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                     i + 1,
                     grid_count
                 );
-                let observations = GeohashObservations(geohash.clone()).fetch_with_retries().await;
+                let observations = GeohashObservations(geohash.clone())
+                    .fetch_with_retries()
+                    .await;
                 {
                     let mut lock = operation.lock().await;
                     lock.visit_geohash_observations(&geohash, &observations);

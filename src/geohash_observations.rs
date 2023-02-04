@@ -4,8 +4,7 @@ use crate::Observations;
 use std::{
     env,
     io::{self, Write},
-    path,
-    time,
+    path, time,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -54,10 +53,7 @@ impl GeohashObservations {
                     break;
                 }
                 Err(_) => {
-                    tracing::info!(
-                        "Encountered an error when fetching. Trying again. {:?}",
-                        (),
-                    );
+                    tracing::info!("Encountered an error when fetching. Trying again. {:?}", (),);
                     tokio::time::sleep(time::Duration::from_secs(5)).await;
                     continue;
                 }
