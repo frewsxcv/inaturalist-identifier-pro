@@ -25,6 +25,18 @@ impl Operation for PrintPlantae {
     }
 }
 
+#[derive(Default)]
+pub struct PrintAngiospermae(pub Vec<Observation>);
+
+impl Operation for PrintAngiospermae {
+    fn visit_observation(&mut self, observation: &crate::Observation) {
+        if let Some(taxon) = &observation.taxon {
+            if taxon.id == Some(47125) && observation.captive == Some(false) {
+                self.0.push(observation.clone());
+            }
+        }
+    }
+}
 pub struct GeoJsonUniqueSpecies {
     geojson_features: Vec<geojson::Feature>,
 }

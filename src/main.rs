@@ -26,10 +26,12 @@ enum AppMessage {
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let grid = GeohashGrid::from_rect(*places::PROSPECT_PARK, 5);
+    let grid = GeohashGrid::from_rect(*places::HARRIMAN_STATE_PARK, 4);
     let grid_count = grid.0.len();
 
-    let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::PrintPlantae::default()));
+    // let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::TopObservationsPerTile::default()));
+    // let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::PrintPlantae::default()));
+    let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::PrintAngiospermae::default()));
     // let mut operation = operations::GeoJsonUniqueSpecies { geojson_features: vec![] };
 
     let (tx, rx_app_message) = async_channel::unbounded::<AppMessage>();

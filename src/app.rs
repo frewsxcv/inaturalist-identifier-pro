@@ -21,9 +21,12 @@ impl eframe::App for TemplateApp {
                     self.results = observations.clone();
                     thread::spawn(move || {
                         for observation in observations {
-                            if let Some(photos) = &observation.photos {
+                            if let Some(photo_url) = &observation
+                                .photos
+                                .and_then(|p| p.get(0).map(|p| p.url.to_owned()))
+                            {
                                 let image_url =
-                                    photos[0].url.as_ref().unwrap().replace("square", "medium");
+                                    photo_url.as_ref().unwrap().replace("square", "medium");
                                 let request = ehttp::Request::get(image_url);
                                 let image_store = image_store.clone();
                                 ehttp::fetch(request, move |response| {
