@@ -8,7 +8,7 @@ publish = false
 async-recursion = "1"
 geo = "0.23"
 governor = "0.4"
-inaturalist = "0.2"
+inaturalist = "0.3"
 lazy_static = "1"
 ordered-float = { version = "3", features = ["serde"] }
 tracing = "0.1"
