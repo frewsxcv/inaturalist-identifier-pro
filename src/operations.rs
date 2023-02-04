@@ -5,7 +5,7 @@ pub trait Operation {
     fn visit_observation(&mut self, _observation: &crate::Observation) {}
     fn visit_geohash_observations(
         &mut self,
-        _geohash: &crate::Geohash,
+        _geohash: crate::Geohash,
         _observations: &crate::Observations,
     ) {
     }
@@ -44,7 +44,7 @@ pub struct GeoJsonUniqueSpecies {
 impl Operation for GeoJsonUniqueSpecies {
     fn visit_geohash_observations(
         &mut self,
-        geohash: &crate::Geohash,
+        geohash: crate::Geohash,
         observations: &crate::Observations,
     ) {
         let mut geojson_feature = geohash.to_geojson_feature();
@@ -88,11 +88,11 @@ pub struct TopObservationsPerTile {
 impl Operation for TopObservationsPerTile {
     fn visit_geohash_observations(
         &mut self,
-        geohash: &crate::Geohash,
+        geohash: crate::Geohash,
         observations: &crate::Observations,
     ) {
         self.observations
-            .insert(geohash.clone(), observations_top_observers(observations));
+            .insert(geohash, observations_top_observers(observations));
     }
 
     fn finish(&mut self) {

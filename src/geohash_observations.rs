@@ -47,7 +47,7 @@ impl GeohashObservations {
     pub async fn fetch_with_retries(&self) -> Observations {
         let observations;
         loop {
-            match GeohashObservations(self.0.clone()).fetch().await {
+            match GeohashObservations(self.0).fetch().await {
                 Ok(o) => {
                     observations = o;
                     break;
@@ -113,7 +113,9 @@ impl GeohashObservations {
     }
 
     async fn geohash_cache_path(&self) -> tokio::io::Result<path::PathBuf> {
-        Ok(Self::geohash_cache_dir().await?.join(&self.0.string))
+        Ok(Self::geohash_cache_dir()
+            .await?
+            .join(self.0.string.as_str()))
     }
 
     async fn write_to_geohash_cache(

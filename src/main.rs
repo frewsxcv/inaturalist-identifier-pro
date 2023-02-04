@@ -42,23 +42,20 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     tokio::task::spawn(async move {
         let mut join_handles = vec![];
-        for (i, geohash) in grid.0.into_iter().enumerate() {
+        for (i, geohash) in grid.0.into_iter().take(1).enumerate() {
             let operation = operation.clone();
             let tx = tx.clone();
             join_handles.push(tokio::spawn(async move {
-                let geohash = geohash.clone();
                 tracing::info!(
                     "Fetch observations for geohash {} ({} / {})",
                     geohash.string,
                     i + 1,
                     grid_count
                 );
-                let observations = GeohashObservations(geohash.clone())
-                    .fetch_with_retries()
-                    .await;
+                let observations = GeohashObservations(geohash).fetch_with_retries().await;
                 {
                     let mut lock = operation.lock().await;
-                    lock.visit_geohash_observations(&geohash, &observations);
+                    lock.visit_geohash_observations(geohash, &observations);
                     for observation in observations {
                         lock.visit_observation(&observation);
                     }

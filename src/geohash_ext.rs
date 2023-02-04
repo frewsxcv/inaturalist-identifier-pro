@@ -1,13 +1,13 @@
 use geo::Convert;
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Geohash {
-    pub string: String,
+    pub string: arrayvec::ArrayString<10>,
     pub bounding_rect: crate::Rect,
 }
 
 impl Geohash {
-    pub fn to_geojson_feature(&self) -> geojson::Feature {
+    pub fn to_geojson_feature(self) -> geojson::Feature {
         let mut properties = geojson::JsonObject::new();
         properties.insert(
             String::from("geohash"),
@@ -32,7 +32,7 @@ impl GeohashGrid {
                 .map(|geohash_string| {
                     let bbox = geohash::decode_bbox(&geohash_string).unwrap();
                     Geohash {
-                        string: geohash_string,
+                        string: arrayvec::ArrayString::from(&geohash_string).unwrap(),
                         bounding_rect: bbox.convert(),
                     }
                 })
