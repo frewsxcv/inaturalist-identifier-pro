@@ -5,6 +5,7 @@ use std::{
     env,
     io::{self, Write},
     path,
+    time,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -44,6 +45,27 @@ pub enum WriteToCacheError {
 pub struct GeohashObservations(pub Geohash);
 
 impl GeohashObservations {
+    pub async fn fetch_with_retries(&self) -> Observations {
+        let observations;
+        loop {
+            match GeohashObservations(self.0.clone()).fetch().await {
+                Ok(o) => {
+                    observations = o;
+                    break;
+                }
+                Err(_) => {
+                    tracing::info!(
+                        "Encountered an error when fetching. Trying again. {:?}",
+                        (),
+                    );
+                    tokio::time::sleep(time::Duration::from_secs(5)).await;
+                    continue;
+                }
+            };
+        }
+        observations
+    }
+
     pub async fn fetch(&self) -> Result<Observations, FetchError> {
         if let Ok(Some(observations)) = self.fetch_from_cache().await {
             return Ok(observations);

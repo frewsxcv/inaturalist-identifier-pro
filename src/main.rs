@@ -51,23 +51,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                     i + 1,
                     grid_count
                 );
-                let observations;
-                loop {
-                    match GeohashObservations(geohash.clone()).fetch().await {
-                        Ok(o) => {
-                            observations = o;
-                            break;
-                        }
-                        Err(_) => {
-                            tracing::info!(
-                                "Encountered an error when fetching. Trying again. {:?}",
-                                (),
-                            );
-                            tokio::time::sleep(time::Duration::from_secs(5)).await;
-                            continue;
-                        }
-                    };
-                }
+                let observations = GeohashObservations(geohash.clone()).fetch_with_retries().await;
                 {
                     let mut lock = operation.lock().await;
                     lock.visit_geohash_observations(&geohash, &observations);
