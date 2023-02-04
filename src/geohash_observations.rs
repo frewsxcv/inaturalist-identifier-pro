@@ -76,6 +76,7 @@ impl GeohashObservations {
         let path = self.geohash_cache_path().await?;
         tracing::info!("Loading cache... ({})", path.display());
         if !path.exists() {
+            tracing::info!("Cache not found");
             return Ok(None);
         }
         let file = tokio::fs::File::open(path).await?;
