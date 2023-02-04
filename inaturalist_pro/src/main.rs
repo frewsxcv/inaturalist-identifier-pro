@@ -37,7 +37,8 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     //     operations::PrintAngiospermae::default(),
     // ));
     // let mut operation = operations::GeoJsonUniqueSpecies { geojson_features: vec![] };
-    let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::NoOp(vec![])));
+    // let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::NoOp(vec![])));
+    let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::TopImageScore(vec![])));
 
     let (tx, rx_app_message) = async_channel::unbounded::<AppMessage>();
 

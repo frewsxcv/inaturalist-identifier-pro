@@ -1757,6 +1757,7 @@ dependencies = [
  "inaturalist-fetch",
  "lazy_static",
  "ordered-float",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror",

@@ -22,6 +22,29 @@ impl Operation for NoOp {
 }
 
 #[derive(Default)]
+pub struct TopImageScore(pub Vec<Observation>);
+
+impl Operation for TopImageScore {
+    fn visit_observation(&mut self, observation: &crate::Observation) {
+        let observation_id = observation.id.unwrap();
+        let url = format!(
+            "https://api.inaturalist.org/v1/computervision/score_observation/{observation_id}"
+        );
+        let join_handle = tokio::spawn(async move {
+            inaturalist_fetch::INATURALIST_RATE_LIMITER.until_ready().await;
+            let response = reqwest::Client::new()
+                .get(url)
+                .header("Authorization", "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJleHAiOjE2NzU1NzQyMTd9.jlh4N1MoPt27EVsYhBCFreF2B3-RSc0CiiGJs2-6A1rEC_YBO-YUv_riW_uqV6p654Nt_x57AingXQhslwjO_A")
+                .send()
+                .await
+                .unwrap();
+            tracing::info!("{:?}", response);
+        });
+        self.0.push(observation.clone());
+    }
+}
+
+#[derive(Default)]
 pub struct PrintPlantae(pub Vec<Observation>);
 
 impl Operation for PrintPlantae {

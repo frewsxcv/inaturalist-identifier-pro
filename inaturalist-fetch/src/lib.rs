@@ -16,7 +16,7 @@ lazy_static::lazy_static! {
             ..Default::default()
         };
 
-    static ref INATURALIST_RATE_LIMITER: governor::RateLimiter<
+    pub static ref INATURALIST_RATE_LIMITER: governor::RateLimiter<
         governor::state::direct::NotKeyed,
         governor::state::InMemoryState,
         governor::clock::DefaultClock,
