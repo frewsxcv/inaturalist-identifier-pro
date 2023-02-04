@@ -10,7 +10,6 @@ mod geohash_observations;
 mod image_store;
 mod operations;
 mod places;
-mod rect_cache;
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 type Observations = Vec<Observation>;
