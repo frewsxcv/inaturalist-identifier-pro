@@ -1,4 +1,4 @@
-use std::num;
+use std::{num, sync};
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
@@ -92,6 +92,7 @@ fn split_rect(rect: crate::Rect) -> (crate::Rect, crate::Rect) {
 
 pub async fn fetch(
     rect: Rect,
+    soft_limit: &sync::atomic::AtomicI32,
 ) -> Result<
     Vec<inaturalist::models::Observation>,
     inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
@@ -100,6 +101,11 @@ pub async fn fetch(
     let per_page = MAX_RESULTS_PER_PAGE;
 
     for page in 1.. {
+        if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
+            tracing::info!("Hit soft limit.");
+            break;
+        }
+
         tracing::info!("Fetching observations...");
         INATURALIST_RATE_LIMITER.until_ready().await;
         let mut response = inaturalist::apis::observations_api::observations_get(
@@ -109,6 +115,7 @@ pub async fn fetch(
         .await?;
         tracing::info!("done");
 
+        soft_limit.fetch_sub(response.results.len() as i32, sync::atomic::Ordering::Relaxed);
         all.append(&mut response.results);
 
         let per_page = response.per_page.unwrap() as u32;

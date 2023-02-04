@@ -19,10 +19,10 @@ pub enum FetchFromApiError {
 pub struct GeohashObservations(pub Geohash);
 
 impl GeohashObservations {
-    pub async fn fetch_with_retries(&self, soft_limit: &sync::atomic::AtomicUsize) -> Observations {
+    pub async fn fetch_with_retries(&self, soft_limit: &sync::atomic::AtomicI32) -> Observations {
         let observations;
         loop {
-            match GeohashObservations(self.0).fetch(soft_limit).await {
+            match GeohashObservations(self.0).fetch_from_api(soft_limit).await {
                 Ok(o) => {
                     observations = o;
                     break;
@@ -37,31 +37,28 @@ impl GeohashObservations {
         observations
     }
 
-    pub async fn fetch(
-        &self,
-        soft_limit: &sync::atomic::AtomicUsize,
-    ) -> Result<Observations, FetchError> {
-        let observations = self.fetch_from_api(soft_limit).await?;
-        Ok(observations)
-    }
-
     async fn fetch_from_api(
         &self,
-        soft_limit: &sync::atomic::AtomicUsize,
+        soft_limit: &sync::atomic::AtomicI32,
     ) -> Result<Observations, FetchFromApiError> {
+        if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
+            return Ok(vec![]);
+        }
+
         let subdivided_rects = inaturalist_fetch::subdivide_rect(self.0.bounding_rect).await?;
         let num_rects = subdivided_rects.len();
         let mut observations = Vec::with_capacity(subdivided_rects.len());
         for (i, s) in subdivided_rects.into_iter().enumerate() {
-            tracing::info!("Fetch tile ({} / {})", i + 1, num_rects);
-
-            if observations.len() > soft_limit.load(sync::atomic::Ordering::Relaxed) {
+            if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
+                tracing::info!("Hit soft limit.");
                 break;
             }
 
-            let mut fetched = inaturalist_fetch::fetch(s.0).await?;
+            tracing::info!("Fetch tile ({} / {})", i + 1, num_rects);
 
-            soft_limit.fetch_sub(observations.len(), sync::atomic::Ordering::Relaxed);
+            let mut fetched = inaturalist_fetch::fetch(s.0, soft_limit).await?;
+
+            tracing::info!("fetched: {}", soft_limit.load(sync::atomic::Ordering::Relaxed));
 
             observations.append(&mut fetched);
         }
