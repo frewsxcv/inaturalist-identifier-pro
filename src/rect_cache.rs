@@ -11,7 +11,7 @@ pub enum FetchFromCacheError {
     #[error("{0}")]
     TokioIo(#[from] tokio::io::Error),
     #[error("{0}")]
-    Bincode(#[from] bincode::Error),
+    SerdeJson(#[from] serde_json::Error),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -19,7 +19,7 @@ pub enum WriteToCacheError {
     #[error("{0}")]
     TokioIo(#[from] tokio::io::Error),
     #[error("{0}")]
-    Bincode(#[from] bincode::Error),
+    SerdeJson(#[from] serde_json::Error),
 }
 
 pub async fn fetch(
@@ -32,7 +32,7 @@ pub async fn fetch(
         return Ok(None);
     }
     let file = tokio::fs::File::open(path).await?;
-    let cache = bincode::deserialize_from(file.into_std().await)?;
+    let cache = serde_json::from_reader(file.into_std().await)?;
     tracing::info!("Fetched old cache");
     Ok(Some(cache))
 }
@@ -45,7 +45,7 @@ pub async fn write(
     let file = tokio::fs::File::create(cache_path).await?;
     tracing::info!("Writing cache...");
     let _ = io::stdout().flush();
-    bincode::serialize_into(file.into_std().await, &observations)?;
+    serde_json::to_writer(file.into_std().await, &observations)?;
     tracing::info!("done");
     let _ = io::stdout().flush();
     Ok(())
