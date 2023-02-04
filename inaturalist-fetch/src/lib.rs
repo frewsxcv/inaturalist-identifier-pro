@@ -3,6 +3,7 @@ use std::{num, sync};
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
 const PLANTAE_ID: u32 = 47126;
+const INSECTA_ID: u32 = 47158;
 
 const INATURALIST_RATE_LIMIT_AMOUNT: governor::Quota =
     governor::Quota::per_second(unsafe { num::NonZeroU32::new_unchecked(1) });
@@ -154,7 +155,7 @@ fn build_params(
         nelng: Some(*rect.max().x),
         // quality_grade: Some(String::from("research")),
         // captive: Some(false),
-        taxon_id: Some(vec![PLANTAE_ID.to_string()]),
+        taxon_id: Some(vec![INSECTA_ID.to_string()]),
         per_page: Some(per_page.to_string()),
         // identified: Some(true),
         // identifications: Some(String::from("most_agree")),
