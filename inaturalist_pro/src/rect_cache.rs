@@ -2,7 +2,6 @@ use crate::Observations;
 use std::{
     collections, env,
     hash::{Hash, Hasher},
-    io::{self, Write},
     path,
 };
 
@@ -44,10 +43,8 @@ pub async fn write(
     let cache_path = path(rect).await?;
     let file = tokio::fs::File::create(cache_path).await?;
     tracing::info!("Writing cache...");
-    let _ = io::stdout().flush();
     serde_json::to_writer(file.into_std().await, &observations)?;
     tracing::info!("done");
-    let _ = io::stdout().flush();
     Ok(())
 }
 

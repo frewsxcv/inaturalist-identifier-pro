@@ -3,7 +3,6 @@ use crate::rect_cache;
 use crate::Observations;
 use std::{
     env,
-    io::{self, Write},
     path, time,
 };
 
@@ -126,10 +125,8 @@ impl GeohashObservations {
         let cache_path = self.geohash_cache_path().await?;
         let file = tokio::fs::File::create(cache_path).await?;
         tracing::info!("Writing cache...");
-        let _ = io::stdout().flush();
         serde_json::to_writer(file.into_std().await, &observations)?;
         tracing::info!("done");
-        let _ = io::stdout().flush();
         Ok(())
     }
 }
