@@ -115,7 +115,6 @@ pub async fn fetch(
             build_params(rect, page, per_page),
         )
         .await?;
-        tracing::info!("done");
 
         soft_limit.fetch_sub(
             response.results.len() as i32,
