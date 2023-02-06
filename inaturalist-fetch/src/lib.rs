@@ -117,7 +117,10 @@ pub async fn fetch(
         .await?;
         tracing::info!("done");
 
-        soft_limit.fetch_sub(response.results.len() as i32, sync::atomic::Ordering::Relaxed);
+        soft_limit.fetch_sub(
+            response.results.len() as i32,
+            sync::atomic::Ordering::Relaxed,
+        );
         all.append(&mut response.results);
 
         let per_page = response.per_page.unwrap() as u32;
@@ -165,4 +168,40 @@ fn build_params(
         page: Some(page.to_string()),
         ..Default::default()
     }
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ComputerVisionObservationScoreResponse {
+    pub total_results: usize,
+    pub page: usize,
+    pub per_page: usize,
+    pub results: Vec<ComputerVisionObservationScore>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ComputerVisionObservationScore {
+    pub vision_score: f32,
+    pub combined_score: f32,
+    pub original_geo_score: f32,
+    pub original_combined_score: f32,
+    pub frequency_score: f32,
+    pub taxon: inaturalist::models::ObservationTaxon,
+}
+
+pub async fn fetch_computer_vision_observation_scores(
+    observation: &inaturalist::models::Observation,
+) -> ComputerVisionObservationScoreResponse {
+    let observation_id = observation.id.unwrap();
+    let url =
+        format!("https://api.inaturalist.org/v1/computervision/score_observation/{observation_id}");
+    INATURALIST_RATE_LIMITER.until_ready().await;
+    reqwest::Client::new()
+        .get(url)
+        .header("Authorization", "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJleHAiOjE2NzU3MzMzOTV9.Orwp0IyyvDY_xs4QPuDtYwKOwDWj5KjmxypH3-GHC9wC1_9LKmd56dxO1L255Em0pNOoOwOi999XgPcJ0m3LQg")
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap()
 }

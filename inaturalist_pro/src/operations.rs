@@ -26,19 +26,10 @@ pub struct TopImageScore(pub Vec<Observation>);
 
 impl Operation for TopImageScore {
     async fn visit_observation(&mut self, observation: &crate::Observation) {
-        let observation_id = observation.id.unwrap();
-        let url = format!(
-            "https://api.inaturalist.org/v1/computervision/score_observation/{observation_id}"
-        );
-        inaturalist_fetch::INATURALIST_RATE_LIMITER.until_ready().await;
-        let response = reqwest::Client::new()
-            .get(url)
-            .header("Authorization", "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJleHAiOjE2NzU1NzQyMTd9.jlh4N1MoPt27EVsYhBCFreF2B3-RSc0CiiGJs2-6A1rEC_YBO-YUv_riW_uqV6p654Nt_x57AingXQhslwjO_A")
-            .send()
-            .await
-            .unwrap();
-        tracing::info!("{:?}", response);
-        self.0.push(observation.clone());
+        let results = inaturalist_fetch::fetch_computer_vision_observation_scores(observation).await;
+        let url = observation.uri.clone().unwrap_or_default();
+        let score = results.results[0].vision_score;
+        println!("{url} - score: {score}");
     }
 }
 
