@@ -43,8 +43,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let (tx_load_observations, mut rx_load_observations) =
         tokio::sync::mpsc::unbounded_channel::<Observation>();
-    let (tx_app_message, mut rx_app_message) =
-        tokio::sync::mpsc::unbounded_channel::<AppMessage>();
+    let (tx_app_message, mut rx_app_message) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
 
     let total_geohashes = grid.0.len();
 

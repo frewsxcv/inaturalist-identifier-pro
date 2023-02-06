@@ -26,7 +26,8 @@ pub struct TopImageScore(pub Vec<Observation>);
 
 impl Operation for TopImageScore {
     async fn visit_observation(&mut self, observation: &crate::Observation) {
-        let results = inaturalist_fetch::fetch_computer_vision_observation_scores(observation).await;
+        let results =
+            inaturalist_fetch::fetch_computer_vision_observation_scores(observation).await;
         let url = observation.uri.clone().unwrap_or_default();
         let score = results.results[0].vision_score;
         println!("{url} - score: {score}");
