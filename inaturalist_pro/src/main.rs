@@ -41,14 +41,16 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let mut operation = operations::TopImageScore(vec![]);
 
-    let (tx_load_observations, rx_load_observations) = async_channel::unbounded::<Observation>();
-    let (tx, rx_app_message) = async_channel::unbounded::<AppMessage>();
+    let (tx_load_observations, mut rx_load_observations) =
+        tokio::sync::mpsc::unbounded_channel::<Observation>();
+    let (tx_app_message, mut rx_app_message) =
+        tokio::sync::mpsc::unbounded_channel::<AppMessage>();
 
     let total_geohashes = grid.0.len();
 
     // FIXME: this thread never sleeps
     tokio::task::spawn(async move {
-        while let Ok(observation) = rx_load_observations.recv().await {
+        while let Some(observation) = rx_load_observations.recv().await {
             // operation.visit_geohash_observations(geohash, &observations).await;
             operation.visit_observation(&observation).await;
         }
@@ -56,7 +58,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     tokio::task::spawn(async move {
         for (i, geohash) in grid.0.into_iter().enumerate() {
-            let tx = tx.clone();
+            let tx_app_message = tx_app_message.clone();
             tracing::info!(
                 "Fetch observations for geohash {} ({} / {})",
                 geohash.string,
@@ -67,7 +69,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                 .fetch_from_api(tx_load_observations.clone(), &FETCH_SOFT_LIMIT)
                 .await
                 .unwrap();
-            tx.send(AppMessage::Progress).await.unwrap();
+            tx_app_message.send(AppMessage::Progress).unwrap();
         }
         // FIXME: call below
         // operation.lock().await.finish();

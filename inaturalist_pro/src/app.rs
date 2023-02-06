@@ -2,7 +2,7 @@ use inaturalist::models::Observation;
 use std::{sync, thread};
 
 pub(crate) struct TemplateApp {
-    pub rx_app_message: async_channel::Receiver<crate::AppMessage>,
+    pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<crate::AppMessage>,
     pub loaded_geohashes: usize,
     pub total_geohashes: usize,
     pub results: Vec<Observation>,

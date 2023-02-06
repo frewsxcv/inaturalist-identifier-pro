@@ -175,17 +175,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-channel"
-version = "1.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf46fee83e5ccffc220104713af3292ff9bc7c64c7de289f66dae8e38d826833"
-dependencies = [
- "concurrent-queue",
- "event-listener",
- "futures-core",
-]
-
-[[package]]
 name = "async-executor"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1742,7 +1731,6 @@ name = "inaturalist-biodiversity"
 version = "0.1.0"
 dependencies = [
  "arrayvec 0.7.2",
- "async-channel",
  "async-mutex",
  "async-recursion",
  "eframe",

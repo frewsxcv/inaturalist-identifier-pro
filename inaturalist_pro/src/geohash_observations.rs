@@ -1,6 +1,6 @@
 use crate::geohash_ext::Geohash;
-use crate::{Observation, Observations};
-use std::{sync, time};
+use crate::Observation;
+use std::sync;
 
 #[derive(thiserror::Error, Debug)]
 pub enum FetchError {
@@ -21,7 +21,7 @@ pub struct GeohashObservations(pub Geohash);
 impl GeohashObservations {
     pub async fn fetch_from_api(
         &self,
-        tx: async_channel::Sender<Observation>,
+        tx: tokio::sync::mpsc::UnboundedSender<Observation>,
         soft_limit: &sync::atomic::AtomicI32,
     ) -> Result<(), FetchFromApiError> {
         if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
@@ -42,7 +42,7 @@ impl GeohashObservations {
             let fetched = inaturalist_fetch::fetch(s.0, soft_limit).await?;
 
             for observation in fetched {
-                tx.send(observation).await.unwrap();
+                tx.send(observation).unwrap();
             }
         }
         Ok(())
