@@ -33,55 +33,50 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let grid = GeohashGrid::from_rect(*places::HARRIMAN_STATE_PARK, 4);
     let grid_count = grid.0.len();
 
-    // let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::TopObservationsPerTile::default()));
-    // let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::PrintPlantae::default()));
-    // let operation = sync::Arc::new(tokio::sync::Mutex::new(
-    //     operations::PrintAngiospermae::default(),
-    // ));
+    // let operation = operations::TopObservationsPerTile::default();
+    // let operation = operations::PrintPlantae::default();
+    // let operation = operations::PrintAngiospermae::default();
     // let mut operation = operations::GeoJsonUniqueSpecies { geojson_features: vec![] };
     // let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::NoOp(vec![])));
 
-    let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::TopImageScore(vec![])));
+    let mut operation = operations::TopImageScore(vec![]);
 
+    let (tx_load_observations, rx_load_observations) = async_channel::unbounded::<Observation>();
     let (tx, rx_app_message) = async_channel::unbounded::<AppMessage>();
 
     let total_geohashes = grid.0.len();
 
+    // FIXME: this thread never sleeps
     tokio::task::spawn(async move {
-        let mut join_handles = vec![];
+        while let Ok(observation) = rx_load_observations.recv().await {
+            // operation.visit_geohash_observations(geohash, &observations).await;
+            operation.visit_observation(&observation).await;
+        }
+    });
+
+    tokio::task::spawn(async move {
         for (i, geohash) in grid.0.into_iter().enumerate() {
-            let operation = operation.clone();
             let tx = tx.clone();
-            join_handles.push(tokio::spawn(async move {
-                tracing::info!(
-                    "Fetch observations for geohash {} ({} / {})",
-                    geohash.string,
-                    i + 1,
-                    grid_count
-                );
-                let observations = GeohashObservations(geohash)
-                    .fetch_with_retries(&FETCH_SOFT_LIMIT)
-                    .await;
-                {
-                    let mut lock = operation.lock().await;
-                    lock.visit_geohash_observations(geohash, &observations).await;
-                    for observation in observations {
-                        lock.visit_observation(&observation).await;
-                    }
-                }
-                tx.send(AppMessage::Progress).await.unwrap();
-            }));
+            tracing::info!(
+                "Fetch observations for geohash {} ({} / {})",
+                geohash.string,
+                i + 1,
+                grid_count
+            );
+            GeohashObservations(geohash)
+                .fetch_from_api(tx_load_observations.clone(), &FETCH_SOFT_LIMIT)
+                .await
+                .unwrap();
+            tx.send(AppMessage::Progress).await.unwrap();
         }
-        for join_handle in join_handles {
-            join_handle.await.unwrap();
-        }
-        operation.lock().await.finish();
+        // FIXME: call below
+        // operation.lock().await.finish();
         tracing::info!("Finished loading thread");
-        tx.send(AppMessage::Results(std::mem::take(
-            &mut operation.lock().await.0,
-        )))
-        .await
-        .unwrap();
+        // tx.send(AppMessage::Results(std::mem::take(
+        //     &mut operation.0,
+        // )))
+        // .await
+        // .unwrap();
     });
 
     eframe::run_native(

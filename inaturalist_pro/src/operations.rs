@@ -3,12 +3,12 @@ use std::{collections, fs, mem};
 
 pub trait Operation {
     async fn visit_observation(&mut self, _observation: &crate::Observation) {}
-    async fn visit_geohash_observations(
-        &mut self,
-        _geohash: crate::Geohash,
-        _observations: &crate::Observations,
-    ) {
-    }
+    // async fn visit_geohash_observations(
+    //     &mut self,
+    //     _geohash: crate::Geohash,
+    //     _observations: &crate::Observations,
+    // ) {
+    // }
     fn finish(&mut self) {}
 }
 
@@ -58,38 +58,38 @@ impl Operation for PrintAngiospermae {
         }
     }
 }
-pub struct GeoJsonUniqueSpecies {
-    geojson_features: Vec<geojson::Feature>,
-}
+// pub struct GeoJsonUniqueSpecies {
+//     geojson_features: Vec<geojson::Feature>,
+// }
 
-impl Operation for GeoJsonUniqueSpecies {
-    async fn visit_geohash_observations(
-        &mut self,
-        geohash: crate::Geohash,
-        observations: &crate::Observations,
-    ) {
-        let mut geojson_feature = geohash.to_geojson_feature();
-        let species_count = observations_species_count(observations);
-        if let Some(properties) = &mut geojson_feature.properties {
-            properties.insert("species count".into(), species_count.into());
-        }
-        self.geojson_features.push(geojson_feature);
-    }
+// impl Operation for GeoJsonUniqueSpecies {
+//     async fn visit_geohash_observations(
+//         &mut self,
+//         geohash: crate::Geohash,
+//         observations: &crate::Observations,
+//     ) {
+//         let mut geojson_feature = geohash.to_geojson_feature();
+//         let species_count = observations_species_count(observations);
+//         if let Some(properties) = &mut geojson_feature.properties {
+//             properties.insert("species count".into(), species_count.into());
+//         }
+//         self.geojson_features.push(geojson_feature);
+//     }
 
-    fn finish(&mut self) {
-        let geojson_feature_collection = geojson::FeatureCollection {
-            features: mem::take(&mut self.geojson_features),
-            bbox: None,
-            foreign_members: None,
-        };
+//     fn finish(&mut self) {
+//         let geojson_feature_collection = geojson::FeatureCollection {
+//             features: mem::take(&mut self.geojson_features),
+//             bbox: None,
+//             foreign_members: None,
+//         };
 
-        fs::write(
-            "/Users/coreyf/tmp/output.geojson",
-            geojson_feature_collection.to_string(),
-        )
-        .unwrap();
-    }
-}
+//         fs::write(
+//             "/Users/coreyf/tmp/output.geojson",
+//             geojson_feature_collection.to_string(),
+//         )
+//         .unwrap();
+//     }
+// }
 
 fn observations_species_count(observations: &[Observation]) -> usize {
     // TODO this should actually be a ratio?
@@ -101,25 +101,25 @@ fn observations_species_count(observations: &[Observation]) -> usize {
         .len()
 }
 
-#[derive(Default)]
-pub struct TopObservationsPerTile {
-    observations: collections::HashMap<crate::Geohash, GeohashTopObservers>,
-}
+// #[derive(Default)]
+// pub struct TopObservationsPerTile {
+//     observations: collections::HashMap<crate::Geohash, GeohashTopObservers>,
+// }
 
-impl Operation for TopObservationsPerTile {
-    async fn visit_geohash_observations(
-        &mut self,
-        geohash: crate::Geohash,
-        observations: &crate::Observations,
-    ) {
-        self.observations
-            .insert(geohash, observations_top_observers(observations));
-    }
+// impl Operation for TopObservationsPerTile {
+//     async fn visit_geohash_observations(
+//         &mut self,
+//         geohash: crate::Geohash,
+//         observations: &crate::Observations,
+//     ) {
+//         self.observations
+//             .insert(geohash, observations_top_observers(observations));
+//     }
 
-    fn finish(&mut self) {
-        println!("{:?}", self.observations);
-    }
-}
+//     fn finish(&mut self) {
+//         println!("{:?}", self.observations);
+//     }
+// }
 
 type GeohashTopObservers = collections::HashMap<String, usize>;
 
