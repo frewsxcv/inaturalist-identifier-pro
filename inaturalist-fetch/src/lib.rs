@@ -161,7 +161,7 @@ fn build_params(
         nelng: Some(*rect.max().x),
         viewer_id: Some("3191422".into()),
         reviewed: Some(false),
-        // quality_grade: Some(String::from("research")),
+        quality_grade: Some(String::from("needs_id")),
         // captive: Some(false),
         taxon_id: Some(vec![DIPTERA_ID.to_string()]),
         lrank: Some("suborder".to_string()),
