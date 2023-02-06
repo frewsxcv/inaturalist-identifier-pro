@@ -2,21 +2,30 @@ use inaturalist::models::Observation;
 use std::collections;
 
 pub trait Operation {
-    async fn visit_observation(&mut self, _observation: &crate::Observation) {}
+    async fn visit_observation(
+        &mut self,
+        _observation: &crate::Observation,
+        tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+    ) {
+    }
     // async fn visit_geohash_observations(
     //     &mut self,
     //     _geohash: crate::Geohash,
     //     _observations: &crate::Observations,
     // ) {
     // }
-    fn finish(&mut self) {}
+    fn finish(&mut self, tx_app_message: tokio::sync::mpsc::Sender<crate::AppMessage>) {}
 }
 
 #[derive(Default)]
 pub struct NoOp(pub Vec<Observation>);
 
 impl Operation for NoOp {
-    async fn visit_observation(&mut self, observation: &crate::Observation) {
+    async fn visit_observation(
+        &mut self,
+        observation: &crate::Observation,
+        tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+    ) {
         self.0.push(observation.clone());
     }
 }
@@ -25,7 +34,11 @@ impl Operation for NoOp {
 pub struct TopImageScore(pub Vec<Observation>);
 
 impl Operation for TopImageScore {
-    async fn visit_observation(&mut self, observation: &crate::Observation) {
+    async fn visit_observation(
+        &mut self,
+        observation: &crate::Observation,
+        tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+    ) {
         let results =
             inaturalist_fetch::fetch_computer_vision_observation_scores(observation).await;
         let url = observation.uri.clone().unwrap_or_default();
@@ -38,7 +51,11 @@ impl Operation for TopImageScore {
 pub struct PrintPlantae(pub Vec<Observation>);
 
 impl Operation for PrintPlantae {
-    async fn visit_observation(&mut self, observation: &crate::Observation) {
+    async fn visit_observation(
+        &mut self,
+        observation: &crate::Observation,
+        tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+    ) {
         if let Some(taxon) = &observation.taxon {
             if taxon.rank == Some("kingdom".to_string()) && observation.captive == Some(false) {
                 self.0.push(observation.clone());
@@ -51,7 +68,11 @@ impl Operation for PrintPlantae {
 pub struct PrintAngiospermae(pub Vec<Observation>);
 
 impl Operation for PrintAngiospermae {
-    async fn visit_observation(&mut self, observation: &crate::Observation) {
+    async fn visit_observation(
+        &mut self,
+        observation: &crate::Observation,
+        tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+    ) {
         if let Some(taxon) = &observation.taxon {
             if taxon.id == Some(47125) && observation.captive == Some(false) {
                 self.0.push(observation.clone());

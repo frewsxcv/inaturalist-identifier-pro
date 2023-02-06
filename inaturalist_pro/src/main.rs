@@ -16,13 +16,13 @@ mod places;
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
 #[derive(Debug)]
-enum AppMessage {
+pub enum AppMessage {
     Progress,
     Results(Vec<Observation>),
 }
 
 lazy_static::lazy_static! {
-    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(20);
+    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(50);
 }
 
 #[tokio::main]
@@ -46,15 +46,18 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let total_geohashes = grid.0.len();
 
+    let foo = tx_app_message.clone();
+
     // FIXME: this thread never sleeps
     tokio::task::spawn(async move {
         while let Some(observation) = rx_load_observations.recv().await {
             // operation.visit_geohash_observations(geohash, &observations).await;
-            operation.visit_observation(&observation).await;
+            operation.visit_observation(&observation, foo.clone()).await;
         }
     });
 
     tokio::task::spawn(async move {
+        let tx_app_message = tx_app_message.clone();
         for (i, geohash) in grid.0.into_iter().enumerate() {
             let tx_app_message = tx_app_message.clone();
             tracing::info!(
