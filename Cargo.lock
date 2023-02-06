@@ -1732,7 +1732,6 @@ version = "0.1.0"
 dependencies = [
  "arrayvec 0.7.2",
  "async-mutex",
- "async-recursion",
  "eframe",
  "egui",
  "egui_extras",

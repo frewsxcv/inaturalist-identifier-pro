@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 arrayvec = "0.7"
 async-mutex = "1"
-async-recursion = "1"
 ehttp = "0.2"
 egui = "0.20"
 egui_extras = { version = "0.20.0", features = ["image"] }
