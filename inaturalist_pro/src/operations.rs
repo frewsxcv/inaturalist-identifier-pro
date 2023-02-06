@@ -1,5 +1,5 @@
 use inaturalist::models::Observation;
-use std::{collections, fs, mem};
+use std::collections;
 
 pub trait Operation {
     async fn visit_observation(&mut self, _observation: &crate::Observation) {}

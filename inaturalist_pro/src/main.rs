@@ -1,6 +1,6 @@
 #![feature(async_fn_in_trait)]
 
-use geohash_ext::{Geohash, GeohashGrid};
+use geohash_ext::GeohashGrid;
 use geohash_observations::GeohashObservations;
 use inaturalist::models::Observation;
 use operations::Operation;
@@ -14,7 +14,6 @@ mod operations;
 mod places;
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
-type Observations = Vec<Observation>;
 
 #[derive(Debug)]
 enum AppMessage {
@@ -43,7 +42,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let (tx_load_observations, mut rx_load_observations) =
         tokio::sync::mpsc::unbounded_channel::<Observation>();
-    let (tx_app_message, mut rx_app_message) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
+    let (tx_app_message, rx_app_message) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
 
     let total_geohashes = grid.0.len();
 
