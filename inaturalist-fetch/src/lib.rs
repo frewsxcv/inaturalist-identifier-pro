@@ -94,12 +94,12 @@ fn split_rect(rect: crate::Rect) -> (crate::Rect, crate::Rect) {
 
 pub async fn fetch(
     rect: Rect,
+    tx: tokio::sync::mpsc::UnboundedSender<inaturalist::models::Observation>,
     soft_limit: &sync::atomic::AtomicI32,
 ) -> Result<
-    Vec<inaturalist::models::Observation>,
+    (),
     inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
 > {
-    let mut all = vec![];
     let per_page = MAX_RESULTS_PER_PAGE;
 
     for page in 1.. {
@@ -110,7 +110,7 @@ pub async fn fetch(
 
         tracing::info!("Fetching observations...");
         INATURALIST_RATE_LIMITER.until_ready().await;
-        let mut response = inaturalist::apis::observations_api::observations_get(
+        let response = inaturalist::apis::observations_api::observations_get(
             &INATURALIST_REQUEST_CONFIG,
             build_params(rect, page, per_page),
         )
@@ -121,7 +121,9 @@ pub async fn fetch(
             response.results.len() as i32,
             sync::atomic::Ordering::Relaxed,
         );
-        all.append(&mut response.results);
+        for result in response.results {
+            tx.send(result).unwrap();
+        }
 
         let per_page = response.per_page.unwrap() as u32;
         let total_results = response.total_results.unwrap() as u32;
@@ -144,7 +146,7 @@ pub async fn fetch(
         }
     }
 
-    Ok(all)
+    Ok(())
 }
 
 fn build_params(

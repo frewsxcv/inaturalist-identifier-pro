@@ -39,11 +39,7 @@ impl GeohashObservations {
 
             tracing::info!("Fetch tile ({} / {})", i + 1, num_rects);
 
-            let fetched = inaturalist_fetch::fetch(s.0, soft_limit).await?;
-
-            for observation in fetched {
-                tx.send(observation).unwrap();
-            }
+            inaturalist_fetch::fetch(s.0, tx.clone(), soft_limit).await?;
         }
         Ok(())
     }
