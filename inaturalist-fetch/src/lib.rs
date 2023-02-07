@@ -2,10 +2,6 @@ use std::{num, sync};
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
-// const PLANTAE_ID: u32 = 47126;
-// const INSECTA_ID: u32 = 47158;
-const DIPTERA_ID: u32 = 47822;
-
 const INATURALIST_RATE_LIMIT_AMOUNT: governor::Quota =
     governor::Quota::per_second(unsafe { num::NonZeroU32::new_unchecked(1) });
 
@@ -96,10 +92,9 @@ pub async fn fetch(
     rect: Rect,
     tx: tokio::sync::mpsc::UnboundedSender<inaturalist::models::Observation>,
     soft_limit: &sync::atomic::AtomicI32,
-) -> Result<
-    (),
-    inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
-> {
+    request: inaturalist::apis::observations_api::ObservationsGetParams,
+) -> Result<(), inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>>
+{
     let per_page = MAX_RESULTS_PER_PAGE;
 
     for page in 1.. {
@@ -112,7 +107,10 @@ pub async fn fetch(
         INATURALIST_RATE_LIMITER.until_ready().await;
         let response = inaturalist::apis::observations_api::observations_get(
             &INATURALIST_REQUEST_CONFIG,
-            build_params(rect, page, per_page),
+            merge_params(
+                request.clone(),
+                build_params(rect, page, per_page),
+            ),
         )
         .await?;
 
@@ -158,18 +156,119 @@ fn build_params(
         swlng: Some(*rect.min().x),
         nelat: Some(*rect.max().y),
         nelng: Some(*rect.max().x),
-        viewer_id: Some("3191422".into()),
-        reviewed: Some(false),
-        quality_grade: Some(String::from("needs_id")),
         // captive: Some(false),
-        taxon_id: Some(vec![DIPTERA_ID.to_string()]),
-        lrank: Some("suborder".to_string()),
-        per_page: Some(per_page.to_string()),
         // identified: Some(true),
         // identifications: Some(String::from("most_agree")),
         // native: Some(true),
+        per_page: Some(per_page.to_string()),
         page: Some(page.to_string()),
         ..Default::default()
+    }
+}
+
+fn merge_params(
+    params1: inaturalist::apis::observations_api::ObservationsGetParams,
+    params2: inaturalist::apis::observations_api::ObservationsGetParams,
+) -> inaturalist::apis::observations_api::ObservationsGetParams {
+    inaturalist::apis::observations_api::ObservationsGetParams {
+        acc: params1.acc.or(params2.acc),
+        captive: params1.captive.or(params2.captive),
+        endemic: params1.endemic.or(params2.endemic),
+        geo: params1.geo.or(params2.geo),
+        id_please: params1.id_please.or(params2.id_please),
+        identified: params1.identified.or(params2.identified),
+        introduced: params1.introduced.or(params2.introduced),
+        mappable: params1.mappable.or(params2.mappable),
+        native: params1.native.or(params2.native),
+        out_of_range: params1.out_of_range.or(params2.out_of_range),
+        pcid: params1.pcid.or(params2.pcid),
+        photos: params1.photos.or(params2.photos),
+        popular: params1.popular.or(params2.popular),
+        sounds: params1.sounds.or(params2.sounds),
+        taxon_is_active: params1.taxon_is_active.or(params2.taxon_is_active),
+        threatened: params1.threatened.or(params2.threatened),
+        verifiable: params1.verifiable.or(params2.verifiable),
+        licensed: params1.licensed.or(params2.licensed),
+        photo_licensed: params1.photo_licensed.or(params2.photo_licensed),
+        id: params1.id.or(params2.id),
+        not_id: params1.not_id.or(params2.not_id),
+        license: params1.license.or(params2.license),
+        ofv_datatype: params1.ofv_datatype.or(params2.ofv_datatype),
+        photo_license: params1.photo_license.or(params2.photo_license),
+        place_id: params1.place_id.or(params2.place_id),
+        project_id: params1.project_id.or(params2.project_id),
+        rank: params1.rank.or(params2.rank),
+        site_id: params1.site_id.or(params2.site_id),
+        sound_license: params1.sound_license.or(params2.sound_license),
+        taxon_id: params1.taxon_id.or(params2.taxon_id),
+        without_taxon_id: params1.without_taxon_id.or(params2.without_taxon_id),
+        taxon_name: params1.taxon_name.or(params2.taxon_name),
+        user_id: params1.user_id.or(params2.user_id),
+        user_login: params1.user_login.or(params2.user_login),
+        ident_user_id: params1.ident_user_id.or(params2.ident_user_id),
+        day: params1.day.or(params2.day),
+        month: params1.month.or(params2.month),
+        year: params1.year.or(params2.year),
+        term_id: params1.term_id.or(params2.term_id),
+        term_value_id: params1.term_value_id.or(params2.term_value_id),
+        without_term_id: params1.without_term_id.or(params2.without_term_id),
+        without_term_value_id: params1
+            .without_term_value_id
+            .or(params2.without_term_value_id),
+        acc_above: params1.acc_above.or(params2.acc_above),
+        acc_below: params1.acc_below.or(params2.acc_below),
+        acc_below_or_unknown: params1
+            .acc_below_or_unknown
+            .or(params2.acc_below_or_unknown),
+        d1: params1.d1.or(params2.d1),
+        d2: params1.d2.or(params2.d2),
+        created_d1: params1.created_d1.or(params2.created_d1),
+        created_d2: params1.created_d2.or(params2.created_d2),
+        created_on: params1.created_on.or(params2.created_on),
+        observed_on: params1.observed_on.or(params2.observed_on),
+        unobserved_by_user_id: params1
+            .unobserved_by_user_id
+            .or(params2.unobserved_by_user_id),
+        apply_project_rules_for: params1
+            .apply_project_rules_for
+            .or(params2.apply_project_rules_for),
+        cs: params1.cs.or(params2.cs),
+        csa: params1.csa.or(params2.csa),
+        csi: params1.csi.or(params2.csi),
+        geoprivacy: params1.geoprivacy.or(params2.geoprivacy),
+        taxon_geoprivacy: params1.taxon_geoprivacy.or(params2.taxon_geoprivacy),
+        hrank: params1.hrank.or(params2.hrank),
+        lrank: params1.lrank.or(params2.lrank),
+        iconic_taxa: params1.iconic_taxa.or(params2.iconic_taxa),
+        id_above: params1.id_above.or(params2.id_above),
+        id_below: params1.id_below.or(params2.id_below),
+        identifications: params1.identifications.or(params2.identifications),
+        lat: params1.lat.or(params2.lat),
+        lng: params1.lng.or(params2.lng),
+        radius: params1.radius.or(params2.radius),
+        nelat: params1.nelat.or(params2.nelat),
+        nelng: params1.nelng.or(params2.nelng),
+        swlat: params1.swlat.or(params2.swlat),
+        swlng: params1.swlng.or(params2.swlng),
+        list_id: params1.list_id.or(params2.list_id),
+        not_in_project: params1.not_in_project.or(params2.not_in_project),
+        not_matching_project_rules_for: params1
+            .not_matching_project_rules_for
+            .or(params2.not_matching_project_rules_for),
+        q: params1.q.or(params2.q),
+        search_on: params1.search_on.or(params2.search_on),
+        quality_grade: params1.quality_grade.or(params2.quality_grade),
+        updated_since: params1.updated_since.or(params2.updated_since),
+        viewer_id: params1.viewer_id.or(params2.viewer_id),
+        reviewed: params1.reviewed.or(params2.reviewed),
+        locale: params1.locale.or(params2.locale),
+        preferred_place_id: params1.preferred_place_id.or(params2.preferred_place_id),
+        ttl: params1.ttl.or(params2.ttl),
+        page: params1.page.or(params2.page),
+        per_page: params1.per_page.or(params2.per_page),
+        order: params1.order.or(params2.order),
+        order_by: params1.order_by.or(params2.order_by),
+        only_id: params1.only_id.or(params2.only_id),
     }
 }
 
@@ -200,7 +299,7 @@ pub async fn fetch_computer_vision_observation_scores(
     INATURALIST_RATE_LIMITER.until_ready().await;
     reqwest::Client::new()
         .get(url)
-        .header("Authorization", "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJleHAiOjE2NzU3MzMzOTV9.Orwp0IyyvDY_xs4QPuDtYwKOwDWj5KjmxypH3-GHC9wC1_9LKmd56dxO1L255Em0pNOoOwOi999XgPcJ0m3LQg")
+        .header("Authorization", "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJleHAiOjE2NzU4MjQzMTN9.87lUNyxa9anPPZuhv7r_6pX7AnN1AyCAiu9Jal4Hf34FwZ2rD2bzqeq7xrC5iAlk5l3oeER-WEamhyshXmakEA")
         .send()
         .await
         .unwrap()

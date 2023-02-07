@@ -23,6 +23,7 @@ impl GeohashObservations {
         &self,
         tx: tokio::sync::mpsc::UnboundedSender<Observation>,
         soft_limit: &sync::atomic::AtomicI32,
+        request: inaturalist::apis::observations_api::ObservationsGetParams,
     ) -> Result<(), FetchFromApiError> {
         if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
             tracing::info!("Hit soft limit.");
@@ -39,7 +40,7 @@ impl GeohashObservations {
 
             tracing::info!("Fetch tile ({} / {})", i + 1, num_rects);
 
-            inaturalist_fetch::fetch(s.0, tx.clone(), soft_limit).await?;
+            inaturalist_fetch::fetch(s.0, tx.clone(), soft_limit, request.clone()).await?;
         }
         Ok(())
     }

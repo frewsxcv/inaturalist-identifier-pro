@@ -1,13 +1,22 @@
 use inaturalist::models::Observation;
 use std::collections;
 
+// const PLANTAE_ID: u32 = 47126;
+// const INSECTA_ID: u32 = 47158;
+const DIPTERA_ID: u32 = 47822;
+
 pub trait Operation {
+    fn request() -> inaturalist::apis::observations_api::ObservationsGetParams {
+        inaturalist::apis::observations_api::ObservationsGetParams::default()
+    }
+
     async fn visit_observation(
         &mut self,
         _observation: &crate::Observation,
         tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) {
     }
+
     // async fn visit_geohash_observations(
     //     &mut self,
     //     _geohash: crate::Geohash,
@@ -17,7 +26,7 @@ pub trait Operation {
     fn finish(&mut self, tx_app_message: tokio::sync::mpsc::Sender<crate::AppMessage>) {}
 }
 
-#[derive(Default)]
+
 pub struct NoOp(pub Vec<Observation>);
 
 impl Operation for NoOp {
@@ -34,6 +43,17 @@ impl Operation for NoOp {
 pub struct TopImageScore(pub Vec<Observation>);
 
 impl Operation for TopImageScore {
+    fn request() -> inaturalist::apis::observations_api::ObservationsGetParams {
+        inaturalist::apis::observations_api::ObservationsGetParams {
+            viewer_id: Some("3191422".into()),
+            reviewed: Some(false),
+            quality_grade: Some(String::from("needs_id")),
+            taxon_id: Some(vec![DIPTERA_ID.to_string()]),
+            lrank: Some("suborder".to_string()),
+            ..Default::default()
+        }
+    }
+
     async fn visit_observation(
         &mut self,
         observation: &crate::Observation,

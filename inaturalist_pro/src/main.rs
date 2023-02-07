@@ -32,13 +32,9 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let grid = GeohashGrid::from_rect(*places::HARRIMAN_STATE_PARK, 4);
     let grid_count = grid.0.len();
 
-    // let operation = operations::TopObservationsPerTile::default();
-    // let operation = operations::PrintPlantae::default();
-    // let operation = operations::PrintAngiospermae::default();
-    // let mut operation = operations::GeoJsonUniqueSpecies { geojson_features: vec![] };
-    // let operation = sync::Arc::new(tokio::sync::Mutex::new(operations::NoOp(vec![])));
+    type Operation = operations::TopImageScore;
 
-    let mut operation = operations::TopImageScore(vec![]);
+    let mut operation = Operation::default();
 
     let (tx_load_observations, mut rx_load_observations) =
         tokio::sync::mpsc::unbounded_channel::<Observation>();
@@ -67,7 +63,11 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                 grid_count
             );
             GeohashObservations(geohash)
-                .fetch_from_api(tx_load_observations.clone(), &FETCH_SOFT_LIMIT)
+                .fetch_from_api(
+                    tx_load_observations.clone(),
+                    &FETCH_SOFT_LIMIT,
+                    Operation::request(),
+                )
                 .await
                 .unwrap();
             tx_app_message.send(AppMessage::Progress).unwrap();
