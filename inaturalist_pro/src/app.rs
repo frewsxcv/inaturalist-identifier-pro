@@ -5,8 +5,13 @@ pub(crate) struct TemplateApp {
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<crate::AppMessage>,
     pub loaded_geohashes: usize,
     pub total_geohashes: usize,
-    pub results: Vec<Observation>,
+    pub results: Vec<Foo>,
     pub image_store: sync::Arc<sync::RwLock<crate::image_store::ImageStore>>,
+}
+
+pub struct Foo {
+    observation: Observation,
+    score: f32,
 }
 
 impl eframe::App for TemplateApp {
@@ -16,28 +21,27 @@ impl eframe::App for TemplateApp {
                 crate::AppMessage::Progress => {
                     self.loaded_geohashes += 1;
                 }
-                crate::AppMessage::Results(observations) => {
+                crate::AppMessage::Result((observation, score)) => {
                     let image_store = self.image_store.clone();
-                    self.results = observations.clone();
+                    self.results.push(Foo { observation: observation.clone(), score });
+                    self.results.sort_unstable_by(|a, b| a.score.partial_cmp(&b.score).unwrap().reverse());
                     thread::spawn(move || {
-                        for observation in observations {
-                            if let Some(photo_url) = &observation
-                                .photos
-                                .and_then(|p| p.get(0).map(|p| p.url.to_owned()))
-                            {
-                                let image_url =
-                                    photo_url.as_ref().unwrap().replace("square", "medium");
-                                let request = ehttp::Request::get(image_url);
-                                let image_store = image_store.clone();
-                                ehttp::fetch(request, move |response| {
-                                    let image = response.and_then(parse_response);
-                                    image_store
-                                        .write()
-                                        .unwrap()
-                                        .insert(observation.id.unwrap(), image.unwrap());
-                                    // ctx.request_repaint();
-                                });
-                            }
+                        if let Some(photo_url) = &observation
+                            .photos
+                            .and_then(|p| p.get(0).map(|p| p.url.to_owned()))
+                        {
+                            let image_url =
+                                photo_url.as_ref().unwrap().replace("square", "medium");
+                            let request = ehttp::Request::get(image_url);
+                            let image_store = image_store.clone();
+                            ehttp::fetch(request, move |response| {
+                                let image = response.and_then(parse_response);
+                                image_store
+                                    .write()
+                                    .unwrap()
+                                    .insert(observation.id.unwrap(), image.unwrap());
+                                // ctx.request_repaint();
+                            });
                         }
                         // image_store.begin_loading(results);
                     });
@@ -93,22 +97,22 @@ impl eframe::App for TemplateApp {
                     ui.add(egui::ProgressBar::new(
                         self.loaded_geohashes as f32 / self.total_geohashes as f32,
                     ));
-                } else {
-                    ui.heading("Results");
-                    for observation in &self.results {
-                        ui.hyperlink(observation.uri.as_ref().unwrap());
-                        if let Some(image) = self
-                            .image_store
-                            .read()
-                            .unwrap()
-                            .load(observation.id.unwrap())
-                        {
-                            image.show(ui);
-                        } else {
-                            ui.spinner();
-                        }
-                        ui.separator();
+                }
+                ui.heading("Results");
+                for foo in &self.results {
+                    ui.hyperlink(foo.observation.uri.as_ref().unwrap());
+                    if let Some(image) = self
+                        .image_store
+                        .read()
+                        .unwrap()
+                        .load(foo.observation.id.unwrap())
+                    {
+                        image.show(ui);
+                        ui.label(format!("Score: {}", foo.score));
+                    } else {
+                        ui.spinner();
                     }
+                    ui.separator();
                 }
             });
         });

@@ -1,6 +1,8 @@
 use inaturalist::models::Observation;
 use std::collections;
 
+use crate::AppMessage;
+
 // const PLANTAE_ID: u32 = 47126;
 // const INSECTA_ID: u32 = 47158;
 const DIPTERA_ID: u32 = 47822;
@@ -25,7 +27,6 @@ pub trait Operation {
     // }
     fn finish(&mut self, tx_app_message: tokio::sync::mpsc::Sender<crate::AppMessage>) {}
 }
-
 
 pub struct NoOp(pub Vec<Observation>);
 
@@ -64,6 +65,7 @@ impl Operation for TopImageScore {
         let url = observation.uri.clone().unwrap_or_default();
         let score = results.results[0].vision_score;
         println!("{url} - score: {score}");
+        tx_app_message.send(AppMessage::Result((observation.clone(), score))).unwrap(); // TODO: remove clone
     }
 }
 
