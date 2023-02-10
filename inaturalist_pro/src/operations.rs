@@ -15,7 +15,7 @@ pub trait Operation {
     async fn visit_observation(
         &mut self,
         _observation: &crate::Observation,
-        tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) {
     }
 
@@ -25,7 +25,7 @@ pub trait Operation {
     //     _observations: &crate::Observations,
     // ) {
     // }
-    fn finish(&mut self, tx_app_message: tokio::sync::mpsc::Sender<crate::AppMessage>) {}
+    fn finish(&mut self, _tx_app_message: tokio::sync::mpsc::Sender<crate::AppMessage>) {}
 }
 
 pub struct NoOp(pub Vec<Observation>);
