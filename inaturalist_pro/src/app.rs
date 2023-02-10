@@ -1,5 +1,5 @@
 use inaturalist::models::Observation;
-use std::{sync, thread};
+use std::sync;
 
 pub(crate) struct TemplateApp {
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<crate::AppMessage>,
@@ -29,7 +29,7 @@ impl eframe::App for TemplateApp {
                     });
                     self.results
                         .sort_unstable_by(|a, b| a.score.partial_cmp(&b.score).unwrap().reverse());
-                    thread::spawn(move || {
+                    tokio::spawn(async move {
                         if let Some(photo_url) = observation
                             .photos
                             .as_ref()
@@ -48,8 +48,8 @@ impl eframe::App for TemplateApp {
 
         // Redraw every 1 second
         let cloned_ctx = ctx.clone();
-        thread::spawn(move || {
-            thread::sleep(std::time::Duration::from_secs(1));
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             cloned_ctx.request_repaint();
         });
 
