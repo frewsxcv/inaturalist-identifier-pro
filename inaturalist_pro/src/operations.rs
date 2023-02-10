@@ -1,5 +1,5 @@
 use inaturalist::models::Observation;
-use std::collections;
+use std::{collections, error};
 
 use crate::AppMessage;
 
@@ -16,7 +16,8 @@ pub trait Operation {
         &mut self,
         _observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
-    ) {
+    ) -> Result<(), Box<dyn error::Error>> {
+        Ok(())
     }
 
     // async fn visit_geohash_observations(
@@ -35,8 +36,9 @@ impl Operation for NoOp {
         &mut self,
         observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
-    ) {
+    ) -> Result<(), Box<dyn error::Error>> {
         self.0.push(observation);
+        Ok(())
     }
 }
 
@@ -59,14 +61,14 @@ impl Operation for TopImageScore {
         &mut self,
         observation: crate::Observation,
         tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
-    ) {
+    ) -> Result<(), Box<dyn error::Error>> {
         let results =
             inaturalist_fetch::fetch_computer_vision_observation_scores(&observation).await;
         let url = observation.uri.clone().unwrap_or_default();
         let score = results.results[0].vision_score;
         tx_app_message
-            .send(AppMessage::Result((Box::new(observation), score)))
-            .unwrap();
+            .send(AppMessage::Result((Box::new(observation), score)))?;
+        Ok(())
     }
 }
 
@@ -78,12 +80,13 @@ impl Operation for PrintPlantae {
         &mut self,
         observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
-    ) {
+    ) -> Result<(), Box<dyn error::Error>> {
         if let Some(taxon) = &observation.taxon {
             if taxon.rank == Some("kingdom".to_string()) && observation.captive == Some(false) {
                 self.0.push(observation.clone());
             }
         }
+        Ok(())
     }
 }
 
@@ -95,12 +98,13 @@ impl Operation for PrintAngiospermae {
         &mut self,
         observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
-    ) {
+    ) -> Result<(), Box<dyn error::Error>> {
         if let Some(taxon) = &observation.taxon {
             if taxon.id == Some(47125) && observation.captive == Some(false) {
                 self.0.push(observation.clone());
             }
         }
+        Ok(())
     }
 }
 // pub struct GeoJsonUniqueSpecies {
