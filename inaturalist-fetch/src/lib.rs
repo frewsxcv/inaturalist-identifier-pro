@@ -1,4 +1,5 @@
 use std::{num, sync};
+use geo_ext::Halve;
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
@@ -54,40 +55,12 @@ pub async fn subdivide_rect(
             "Splitting rect (total_results: {})",
             response.total_results.unwrap()
         );
-        let (rect1, rect2) = halve_rect(rect);
+        let (rect1, rect2) = rect.halve();
         let mut s1 = subdivide_rect(rect1).await?;
         let mut s2 = subdivide_rect(rect2).await?;
         s1.append(&mut s2);
         s1
     })
-}
-
-fn halve_rect(rect: crate::Rect) -> (crate::Rect, crate::Rect) {
-    if rect.width() > rect.height() {
-        let mid = rect.min().x + rect.width() / 2.;
-        (
-            geo::Rect::new(
-                geo::coord! { x: rect.min().x, y: rect.min().y },
-                geo::coord! { x: mid, y: rect.max().y },
-            ),
-            geo::Rect::new(
-                geo::coord! { x: mid, y: rect.min().y },
-                geo::coord! { x: rect.max().x, y: rect.max().y },
-            ),
-        )
-    } else {
-        let mid = rect.min().y + rect.height() / 2.;
-        (
-            geo::Rect::new(
-                geo::coord! { x: rect.min().x, y: rect.min().y },
-                geo::coord! { x: rect.max().x, y: mid },
-            ),
-            geo::Rect::new(
-                geo::coord! { x: rect.min().x, y: mid },
-                geo::coord! { x: rect.max().x, y: rect.max().y },
-            ),
-        )
-    }
 }
 
 pub async fn fetch(

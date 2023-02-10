@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "geo-ext",
     "inaturalist-fetch",
     "inaturalist_pro",
 ]

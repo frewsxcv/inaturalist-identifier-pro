@@ -1363,6 +1363,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "geo-ext"
+version = "0.1.0"
+dependencies = [
+ "geo",
+]
+
+[[package]]
 name = "geo-types"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1758,6 +1765,7 @@ version = "0.1.0"
 dependencies = [
  "async-recursion",
  "geo",
+ "geo-ext",
  "governor",
  "inaturalist",
  "lazy_static",
