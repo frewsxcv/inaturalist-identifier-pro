@@ -20,6 +20,8 @@ lazy_static::lazy_static! {
         governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
 }
 
+const AUTHORIZATION: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJleHAiOjE2NzU5NTQ2OTh9.DWv0i_jKxFk2o5G12FKrtbQtN9p3ZZLmjqscTI_Jo8R6JCGdACSzZI_YlFZm0fGwfMF8dsPHYUvPlbs1Vqaseg";
+
 pub struct SubdividedRect(pub crate::Rect);
 
 /// iNaturalist will not let us page past 10,000 results.
@@ -299,7 +301,7 @@ pub async fn fetch_computer_vision_observation_scores(
     INATURALIST_RATE_LIMITER.until_ready().await;
     reqwest::Client::new()
         .get(url)
-        .header("Authorization", "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJleHAiOjE2NzU5NTQ2OTh9.DWv0i_jKxFk2o5G12FKrtbQtN9p3ZZLmjqscTI_Jo8R6JCGdACSzZI_YlFZm0fGwfMF8dsPHYUvPlbs1Vqaseg")
+        .header("Authorization", AUTHORIZATION)
         .send()
         .await
         .unwrap()
