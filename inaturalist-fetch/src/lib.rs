@@ -299,7 +299,7 @@ pub async fn fetch_computer_vision_observation_scores(
     INATURALIST_RATE_LIMITER.until_ready().await;
     reqwest::Client::new()
         .get(url)
-        .header("Authorization", "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJleHAiOjE2NzU4MjQzMTN9.87lUNyxa9anPPZuhv7r_6pX7AnN1AyCAiu9Jal4Hf34FwZ2rD2bzqeq7xrC5iAlk5l3oeER-WEamhyshXmakEA")
+        .header("Authorization", "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJleHAiOjE2NzU5NTQ2OTh9.DWv0i_jKxFk2o5G12FKrtbQtN9p3ZZLmjqscTI_Jo8R6JCGdACSzZI_YlFZm0fGwfMF8dsPHYUvPlbs1Vqaseg")
         .send()
         .await
         .unwrap()

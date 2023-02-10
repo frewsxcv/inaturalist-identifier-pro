@@ -22,14 +22,14 @@ pub enum AppMessage {
 }
 
 lazy_static::lazy_static! {
-    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(50);
+    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(500);
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let grid = GeohashGrid::from_rect(*places::HARRIMAN_STATE_PARK, 4);
+    let grid = GeohashGrid::from_rect(*places::NYC, 4);
     let grid_count = grid.0.len();
 
     type Operation = operations::TopImageScore;
