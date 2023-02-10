@@ -116,7 +116,7 @@ impl eframe::App for TemplateApp {
     }
 }
 
-fn parse_response(response: ehttp::Response) -> Result<egui_extras::RetainedImage, String> {
+fn parse_image_response(response: ehttp::Response) -> Result<egui_extras::RetainedImage, String> {
     let content_type = response.content_type().unwrap_or_default();
     if content_type.starts_with("image/") {
         egui_extras::RetainedImage::from_image_bytes(&response.url, &response.bytes)
@@ -133,7 +133,7 @@ fn fetch_image(
     observation: Observation,
 ) {
     ehttp::fetch(request, move |response| {
-        let image = response.and_then(parse_response);
+        let image = response.and_then(parse_image_response);
         image_store
             .write()
             .unwrap()
