@@ -34,7 +34,7 @@ impl Operation for NoOp {
     async fn visit_observation(
         &mut self,
         observation: &crate::Observation,
-        tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) {
         self.0.push(observation.clone());
     }
@@ -76,7 +76,7 @@ impl Operation for PrintPlantae {
     async fn visit_observation(
         &mut self,
         observation: &crate::Observation,
-        tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) {
         if let Some(taxon) = &observation.taxon {
             if taxon.rank == Some("kingdom".to_string()) && observation.captive == Some(false) {
@@ -93,7 +93,7 @@ impl Operation for PrintAngiospermae {
     async fn visit_observation(
         &mut self,
         observation: &crate::Observation,
-        tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) {
         if let Some(taxon) = &observation.taxon {
             if taxon.id == Some(47125) && observation.captive == Some(false) {
