@@ -14,7 +14,7 @@ pub trait Operation {
 
     async fn visit_observation(
         &mut self,
-        _observation: &crate::Observation,
+        _observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) {
     }
@@ -33,10 +33,10 @@ pub struct NoOp(pub Vec<Observation>);
 impl Operation for NoOp {
     async fn visit_observation(
         &mut self,
-        observation: &crate::Observation,
+        observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) {
-        self.0.push(observation.clone());
+        self.0.push(observation);
     }
 }
 
@@ -57,15 +57,15 @@ impl Operation for TopImageScore {
 
     async fn visit_observation(
         &mut self,
-        observation: &crate::Observation,
+        observation: crate::Observation,
         tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) {
         let results =
-            inaturalist_fetch::fetch_computer_vision_observation_scores(observation).await;
+            inaturalist_fetch::fetch_computer_vision_observation_scores(&observation).await;
         let url = observation.uri.clone().unwrap_or_default();
         let score = results.results[0].vision_score;
         tx_app_message
-            .send(AppMessage::Result((Box::new(observation.clone()), score)))
+            .send(AppMessage::Result((Box::new(observation), score)))
             .unwrap(); // TODO: remove clone
     }
 }
@@ -76,7 +76,7 @@ pub struct PrintPlantae(pub Vec<Observation>);
 impl Operation for PrintPlantae {
     async fn visit_observation(
         &mut self,
-        observation: &crate::Observation,
+        observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) {
         if let Some(taxon) = &observation.taxon {
@@ -93,7 +93,7 @@ pub struct PrintAngiospermae(pub Vec<Observation>);
 impl Operation for PrintAngiospermae {
     async fn visit_observation(
         &mut self,
-        observation: &crate::Observation,
+        observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) {
         if let Some(taxon) = &observation.taxon {
