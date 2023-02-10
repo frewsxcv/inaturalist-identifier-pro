@@ -66,7 +66,7 @@ impl Operation for TopImageScore {
         let score = results.results[0].vision_score;
         tx_app_message
             .send(AppMessage::Result((Box::new(observation), score)))
-            .unwrap(); // TODO: remove clone
+            .unwrap();
     }
 }
 
