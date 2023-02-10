@@ -23,25 +23,22 @@ impl eframe::App for TemplateApp {
                 }
                 crate::AppMessage::Result((observation, score)) => {
                     let image_store = self.image_store.clone();
-                    self.results.push(Foo { observation: observation.clone(), score });
-                    self.results.sort_unstable_by(|a, b| a.score.partial_cmp(&b.score).unwrap().reverse());
+                    self.results.push(Foo {
+                        observation: observation.clone(),
+                        score,
+                    });
+                    self.results
+                        .sort_unstable_by(|a, b| a.score.partial_cmp(&b.score).unwrap().reverse());
                     thread::spawn(move || {
-                        if let Some(photo_url) = &observation
+                        if let Some(photo_url) = observation
                             .photos
+                            .as_ref()
                             .and_then(|p| p.get(0).map(|p| p.url.to_owned()))
                         {
-                            let image_url =
-                                photo_url.as_ref().unwrap().replace("square", "medium");
+                            let image_url = photo_url.as_ref().unwrap().replace("square", "medium");
                             let request = ehttp::Request::get(image_url);
                             let image_store = image_store.clone();
-                            ehttp::fetch(request, move |response| {
-                                let image = response.and_then(parse_response);
-                                image_store
-                                    .write()
-                                    .unwrap()
-                                    .insert(observation.id.unwrap(), image.unwrap());
-                                // ctx.request_repaint();
-                            });
+                            fetch_image(request, image_store, observation);
                         }
                         // image_store.begin_loading(results);
                     });
@@ -128,4 +125,19 @@ fn parse_response(response: ehttp::Response) -> Result<egui_extras::RetainedImag
             "Expected image, found content-type {content_type:?}"
         ))
     }
+}
+
+fn fetch_image(
+    request: ehttp::Request,
+    image_store: sync::Arc<sync::RwLock<crate::image_store::ImageStore>>,
+    observation: Observation,
+) {
+    ehttp::fetch(request, move |response| {
+        let image = response.and_then(parse_response);
+        image_store
+            .write()
+            .unwrap()
+            .insert(observation.id.unwrap(), image.unwrap());
+        // ctx.request_repaint();
+    });
 }
