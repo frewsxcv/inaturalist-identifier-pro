@@ -24,7 +24,7 @@ impl eframe::App for TemplateApp {
                 crate::AppMessage::Result((observation, score)) => {
                     let image_store = self.image_store.clone();
                     self.results.push(Foo {
-                        observation: observation.clone(),
+                        observation: *observation.clone(),
                         score,
                     });
                     self.results
@@ -38,7 +38,7 @@ impl eframe::App for TemplateApp {
                             let image_url = photo_url.as_ref().unwrap().replace("square", "medium");
                             let request = ehttp::Request::get(image_url);
                             let image_store = image_store.clone();
-                            fetch_image(request, image_store, observation);
+                            fetch_image(request, image_store, *observation);
                         }
                         // image_store.begin_loading(results);
                     });

@@ -18,7 +18,7 @@ type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 #[derive(Debug)]
 pub enum AppMessage {
     Progress,
-    Result((Observation, f32)),
+    Result((Box<Observation>, f32)),
 }
 
 lazy_static::lazy_static! {

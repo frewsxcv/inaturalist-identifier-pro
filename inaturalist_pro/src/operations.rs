@@ -65,7 +65,9 @@ impl Operation for TopImageScore {
         let url = observation.uri.clone().unwrap_or_default();
         let score = results.results[0].vision_score;
         println!("{url} - score: {score}");
-        tx_app_message.send(AppMessage::Result((observation.clone(), score))).unwrap(); // TODO: remove clone
+        tx_app_message
+            .send(AppMessage::Result((Box::new(observation.clone()), score)))
+            .unwrap(); // TODO: remove clone
     }
 }
 
