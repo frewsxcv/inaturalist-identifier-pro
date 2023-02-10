@@ -52,7 +52,7 @@ pub async fn subdivide_rect(
             "Splitting rect (total_results: {})",
             response.total_results.unwrap()
         );
-        let (rect1, rect2) = split_rect(rect);
+        let (rect1, rect2) = halve_rect(rect);
         let mut s1 = subdivide_rect(rect1).await?;
         let mut s2 = subdivide_rect(rect2).await?;
         s1.append(&mut s2);
@@ -60,7 +60,7 @@ pub async fn subdivide_rect(
     })
 }
 
-fn split_rect(rect: crate::Rect) -> (crate::Rect, crate::Rect) {
+fn halve_rect(rect: crate::Rect) -> (crate::Rect, crate::Rect) {
     if rect.width() > rect.height() {
         let mid = rect.min().x + rect.width() / 2.;
         (
