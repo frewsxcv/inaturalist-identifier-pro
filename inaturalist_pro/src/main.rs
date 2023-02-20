@@ -1,4 +1,5 @@
 #![feature(async_fn_in_trait)]
+#![feature(async_closure)]
 
 use geohash_ext::GeohashGrid;
 use geohash_observations::GeohashObservations;

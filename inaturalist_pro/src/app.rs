@@ -1,5 +1,7 @@
+use core::fmt;
+use image::EncodableLayout;
 use inaturalist::models::Observation;
-use std::sync;
+use std::{error, sync};
 
 pub(crate) struct TemplateApp {
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<crate::AppMessage>,
@@ -36,9 +38,8 @@ impl eframe::App for TemplateApp {
                             .and_then(|p| p.get(0).map(|p| p.url.to_owned()))
                         {
                             let image_url = photo_url.as_ref().unwrap().replace("square", "medium");
-                            let request = ehttp::Request::get(image_url);
                             let image_store = image_store.clone();
-                            fetch_image(request, image_store, *observation);
+                            fetch_image(image_url, image_store, *observation).await.unwrap();
                         }
                         // image_store.begin_loading(results);
                     });
@@ -106,28 +107,49 @@ impl eframe::App for TemplateApp {
     }
 }
 
-fn parse_image_response(response: ehttp::Response) -> Result<egui_extras::RetainedImage, String> {
-    let content_type = response.content_type().unwrap_or_default();
-    if content_type.starts_with("image/") {
-        egui_extras::RetainedImage::from_image_bytes(&response.url, &response.bytes)
-    } else {
-        Err(format!(
-            "Expected image, found content-type {content_type:?}"
-        ))
+#[derive(Debug)]
+enum ParseImageResponseError {
+    NoHeader,
+    NotAnImage,
+}
+
+impl fmt::Display for ParseImageResponseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        todo!()
     }
 }
 
-fn fetch_image(
-    request: ehttp::Request,
+impl error::Error for ParseImageResponseError {}
+
+async fn parse_image_response(
+    response: reqwest::Response,
+) -> Result<egui_extras::RetainedImage, ParseImageResponseError> {
+    match response.headers().get(reqwest::header::CONTENT_TYPE) {
+        Some(header_value) => {
+            if header_value.as_bytes().starts_with(b"image/") {
+                Ok(egui_extras::RetainedImage::from_image_bytes(
+                    response.url().as_str().to_owned(),
+                    response.bytes().await.unwrap().as_bytes(),
+                )
+                .unwrap())
+            } else {
+                Err(ParseImageResponseError::NotAnImage)
+            }
+        }
+        None => Err(ParseImageResponseError::NoHeader),
+    }
+}
+
+async fn fetch_image(
+    url: String,
     image_store: sync::Arc<sync::RwLock<crate::image_store::ImageStore>>,
     observation: Observation,
-) {
-    ehttp::fetch(request, move |response| {
-        let image = response.and_then(parse_image_response);
-        image_store
-            .write()
-            .unwrap()
-            .insert(observation.id.unwrap(), image.unwrap());
-        // ctx.request_repaint();
-    });
+) -> Result<(), Box<dyn error::Error>> {
+    let response = reqwest::get(url).await?;
+    let retained_image = parse_image_response(response).await?;
+    image_store
+        .write()
+        .unwrap()
+        .insert(observation.id.unwrap(), retained_image);
+    Ok(())
 }
