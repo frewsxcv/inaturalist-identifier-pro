@@ -39,7 +39,9 @@ impl eframe::App for TemplateApp {
                         {
                             let image_url = photo_url.as_ref().unwrap().replace("square", "medium");
                             let image_store = image_store.clone();
-                            fetch_image(image_url, image_store, *observation).await.unwrap();
+                            fetch_image(image_url, image_store, *observation)
+                                .await
+                                .unwrap();
                         }
                         // image_store.begin_loading(results);
                     });

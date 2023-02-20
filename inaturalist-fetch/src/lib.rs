@@ -1,5 +1,5 @@
-use std::{num, sync};
 use geo_ext::Halve;
+use std::{num, sync};
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
@@ -82,10 +82,7 @@ pub async fn fetch(
         INATURALIST_RATE_LIMITER.until_ready().await;
         let response = inaturalist::apis::observations_api::observations_get(
             &INATURALIST_REQUEST_CONFIG,
-            merge_params(
-                request.clone(),
-                build_params(rect, page, per_page),
-            ),
+            merge_params(request.clone(), build_params(rect, page, per_page)),
         )
         .await?;
 

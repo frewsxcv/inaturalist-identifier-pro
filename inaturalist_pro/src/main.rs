@@ -49,7 +49,10 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     tokio::task::spawn(async move {
         while let Some(observation) = rx_load_observations.recv().await {
             // operation.visit_geohash_observations(geohash, &observations).await;
-            operation.visit_observation(observation, foo.clone()).await.unwrap();
+            operation
+                .visit_observation(observation, foo.clone())
+                .await
+                .unwrap();
         }
     });
 

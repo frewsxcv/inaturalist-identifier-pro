@@ -66,8 +66,7 @@ impl Operation for TopImageScore {
             inaturalist_fetch::fetch_computer_vision_observation_scores(&observation).await;
         let url = observation.uri.clone().unwrap_or_default();
         let score = results.results[0].vision_score;
-        tx_app_message
-            .send(AppMessage::Result((Box::new(observation), score)))?;
+        tx_app_message.send(AppMessage::Result((Box::new(observation), score)))?;
         Ok(())
     }
 }
