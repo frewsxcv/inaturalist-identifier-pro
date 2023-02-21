@@ -19,7 +19,7 @@ type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 #[derive(Debug)]
 pub enum AppMessage {
     Progress,
-    Result((Box<Observation>, f32)),
+    Result((Box<Observation>, Vec<inaturalist_fetch::ComputerVisionObservationScore>)),
 }
 
 lazy_static::lazy_static! {
@@ -30,7 +30,7 @@ lazy_static::lazy_static! {
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let grid = GeohashGrid::from_rect(*places::NYC, 4);
+    let grid = GeohashGrid::from_rect(*places::BROOKLYN, 4);
     let grid_count = grid.0.len();
 
     type Operation = operations::TopImageScore;

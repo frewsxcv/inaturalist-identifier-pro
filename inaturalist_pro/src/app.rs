@@ -13,7 +13,7 @@ pub(crate) struct TemplateApp {
 
 pub struct Foo {
     observation: Observation,
-    score: f32,
+    scores: Vec<inaturalist_fetch::ComputerVisionObservationScore>,
 }
 
 impl eframe::App for TemplateApp {
@@ -23,14 +23,19 @@ impl eframe::App for TemplateApp {
                 crate::AppMessage::Progress => {
                     self.loaded_geohashes += 1;
                 }
-                crate::AppMessage::Result((observation, score)) => {
+                crate::AppMessage::Result((observation, scores)) => {
                     let image_store = self.image_store.clone();
                     self.results.push(Foo {
                         observation: *observation.clone(),
-                        score,
+                        scores,
                     });
-                    self.results
-                        .sort_unstable_by(|a, b| a.score.partial_cmp(&b.score).unwrap().reverse());
+                    self.results.sort_unstable_by(|a, b| {
+                        a.scores[0]
+                            .combined_score
+                            .partial_cmp(&b.scores[0].combined_score)
+                            .unwrap()
+                            .reverse()
+                    });
                     tokio::spawn(async move {
                         if let Some(photo_url) = observation
                             .photos
@@ -98,7 +103,13 @@ impl eframe::App for TemplateApp {
                         .load(foo.observation.id.unwrap())
                     {
                         image.show(ui);
-                        ui.label(format!("Score: {}", foo.score));
+                        for score in &foo.scores {
+                            ui.label(format!(
+                                "Guess: {}",
+                                score.taxon.name.as_ref().unwrap()
+                            ));
+                            ui.label(format!("Score: {}", score.combined_score));
+                        }
                     } else {
                         ui.spinner();
                     }
