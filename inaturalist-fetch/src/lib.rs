@@ -266,6 +266,7 @@ pub async fn fetch_computer_vision_observation_scores(
     observation: &inaturalist::models::Observation,
 ) -> ComputerVisionObservationScoreResponse {
     let observation_id = observation.id.unwrap();
+    tracing::info!("Fetch observation score (observation ID: {observation_id}");
     let url =
         format!("https://api.inaturalist.org/v1/computervision/score_observation/{observation_id}");
     INATURALIST_RATE_LIMITER.until_ready().await;
