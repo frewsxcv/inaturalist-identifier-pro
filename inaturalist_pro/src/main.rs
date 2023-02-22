@@ -13,6 +13,7 @@ mod geohash_observations;
 mod image_store;
 mod operations;
 mod places;
+mod taxon_tree;
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
@@ -23,14 +24,14 @@ pub enum AppMessage {
 }
 
 lazy_static::lazy_static! {
-    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(500);
+    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(5000);
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let grid = GeohashGrid::from_rect(*places::BROOKLYN, 4);
+    let grid = GeohashGrid::from_rect(*places::NYC, 4);
     let grid_count = grid.0.len();
 
     type Operation = operations::TopImageScore;

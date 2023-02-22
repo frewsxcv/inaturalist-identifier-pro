@@ -4,7 +4,7 @@ use std::{num, sync};
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
 const INATURALIST_RATE_LIMIT_AMOUNT: governor::Quota =
-    governor::Quota::per_second(unsafe { num::NonZeroU32::new_unchecked(1) });
+    governor::Quota::per_minute(unsafe { num::NonZeroU32::new_unchecked(30) });
 
 lazy_static::lazy_static! {
     static ref INATURALIST_REQUEST_CONFIG: inaturalist::apis::configuration::Configuration =
@@ -244,6 +244,21 @@ fn merge_params(
     }
 }
 
+pub async fn fetch_taxa(
+    taxa_ids: Vec<i32>,
+) -> Result<
+    inaturalist::models::TaxaShowResponse,
+    inaturalist::apis::Error<inaturalist::apis::taxa_api::TaxaIdGetError>,
+> {
+    INATURALIST_RATE_LIMITER.until_ready().await;
+    let taxa = inaturalist::apis::taxa_api::taxa_id_get(
+        &INATURALIST_REQUEST_CONFIG,
+        inaturalist::apis::taxa_api::TaxaIdGetParams { id: taxa_ids },
+    )
+    .await?;
+    Ok(taxa)
+}
+
 #[derive(Debug, serde::Deserialize)]
 pub struct ComputerVisionObservationScoreResponse {
     pub total_results: usize,
@@ -252,7 +267,7 @@ pub struct ComputerVisionObservationScoreResponse {
     pub results: Vec<ComputerVisionObservationScore>,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Deserialize)]
 pub struct ComputerVisionObservationScore {
     pub vision_score: f32,
     pub combined_score: f32,

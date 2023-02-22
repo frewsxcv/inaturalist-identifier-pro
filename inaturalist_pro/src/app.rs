@@ -1,7 +1,9 @@
 use core::fmt;
 use image::EncodableLayout;
 use inaturalist::models::Observation;
-use std::{error, sync};
+use std::{collections::HashMap, error, sync};
+
+use crate::taxon_tree::TaxonTreeNode;
 
 pub(crate) struct TemplateApp {
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<crate::AppMessage>,
@@ -14,6 +16,7 @@ pub(crate) struct TemplateApp {
 pub struct Foo {
     observation: Observation,
     scores: Vec<inaturalist_fetch::ComputerVisionObservationScore>,
+    taxon_tree: crate::taxon_tree::TaxonTree,
 }
 
 impl eframe::App for TemplateApp {
@@ -27,8 +30,50 @@ impl eframe::App for TemplateApp {
                     let image_store = self.image_store.clone();
                     self.results.push(Foo {
                         observation: *observation.clone(),
-                        scores,
+                        scores: scores.clone(),
+                        taxon_tree: Default::default(),
                     });
+                    // let mut taxa_ids = observation
+                    //     .taxon
+                    //     .as_ref()
+                    //     .unwrap()
+                    //     .ancestor_ids
+                    //     .as_ref()
+                    //     .unwrap()
+                    //     .to_owned();
+                    // taxa_ids.push(observation.taxon.as_ref().unwrap().id.unwrap());
+
+                    tokio::spawn(async move {
+                        let scores = scores.clone();
+                        let taxa_ids = scores
+                            .iter()
+                            .map(|n| n.taxon.id.unwrap())
+                            .collect::<Vec<_>>();
+                        let result = inaturalist_fetch::fetch_taxa(taxa_ids).await.unwrap();
+                        let mut hash_map = <crate::taxon_tree::TaxonTree as Default>::default();
+                        for result in result.results {
+                            let mut foo = &mut hash_map;
+                            for ancestor_id in result.ancestor_ids.as_ref().unwrap() {
+                                // let new = crate::taxon_tree::TaxonTreeNode {
+                                // children: Default::default(),
+                                // };
+                                // foo.0.insert(ancestor_id, Default::default());
+                                println!("NEW ANCESTOR: {ancestor_id}");
+                                let taxon_tree_node =
+                                    foo.0.entry(*ancestor_id).or_insert_with(|| TaxonTreeNode {
+                                        children: Default::default(),
+                                        score: scores
+                                            .iter()
+                                            .find(|&score| score.taxon.id == Some(*ancestor_id))
+                                            .map(|score| score.combined_score)
+                                    });
+                                foo = &mut taxon_tree_node.children;
+                            }
+                        }
+                        // let taxon_tree = crate::taxon_tree::TaxonTree();
+                        println!("{:#?}", hash_map);
+                    });
+
                     self.results.sort_unstable_by(|a, b| {
                         a.scores[0]
                             .combined_score
@@ -103,11 +148,16 @@ impl eframe::App for TemplateApp {
                         .load(foo.observation.id.unwrap())
                     {
                         image.show(ui);
+                        // TODO: print tree here
+
+                        // CollapsingHeader::new(name)
+                        // .default_open(depth < 1)
+                        // .show(ui, |ui| self.children_ui(ui, depth))
+                        // .body_returned
+                        // .unwrap_or(Action::Keep)
+
                         for score in &foo.scores {
-                            ui.label(format!(
-                                "Guess: {}",
-                                score.taxon.name.as_ref().unwrap()
-                            ));
+                            ui.label(format!("Guess: {}", score.taxon.name.as_ref().unwrap()));
                             ui.label(format!("Score: {}", score.combined_score));
                         }
                     } else {
