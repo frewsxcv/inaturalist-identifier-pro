@@ -85,7 +85,7 @@ impl TemplateApp {
 
     fn load_image_in_background_thread(&self, observation: Box<Observation>) {
         let image_store = self.image_store.clone();
-        tokio::spawn(async move {
+        actix::Arbiter::new().spawn(async move {
             if let Some(photo_url) = observation
                 .photos
                 .as_ref()

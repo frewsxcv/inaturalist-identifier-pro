@@ -21,7 +21,7 @@ lazy_static::lazy_static! {
         governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
 }
 
-const AUTHORIZATION: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJleHAiOjE2NzcxMTkxMTh9.LZ8rMU_E7jkoxO0mNbrKdJIZo_Yq8woJOMY77c7iBzpVAO7uNjekt4cOOxig-6cGtFe8LeJL-UdOx3Z-UzN6ag";
+const AUTHORIZATION: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJleHAiOjE2NzcyMTA3ODB9.jL4ElzlEmcF30MONCt1I122OH2AeCuisj-XtHSN0BH-E0HAvleE6vXTspRAvimRUhGpESyLg9Cw5-ZTbPAQzaw";
 
 pub struct SubdividedRect(pub crate::Rect);
 

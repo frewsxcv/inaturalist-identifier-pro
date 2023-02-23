@@ -23,6 +23,7 @@ impl Geohash {
     }
 }
 
+#[derive(Clone)]
 pub struct GeohashGrid(pub Vec<Geohash>);
 
 impl GeohashGrid {

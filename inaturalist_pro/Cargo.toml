@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 arrayvec = "0.7"
+actix = "0.13"
 async-mutex = "1"
 egui = "0.21"
 egui_extras = { version = "0.21", features = ["image"] }
