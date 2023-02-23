@@ -19,6 +19,89 @@ pub struct Foo {
     taxon_tree: crate::taxon_tree::TaxonTree,
 }
 
+impl TemplateApp {
+    fn handle_new_result(
+        &mut self,
+        observation: Box<Observation>,
+        scores: Vec<inaturalist_fetch::ComputerVisionObservationScore>,
+    ) {
+        let image_store = self.image_store.clone();
+        self.results.push(Foo {
+            observation: *observation.clone(),
+            scores: scores.clone(),
+            taxon_tree: Default::default(),
+        });
+        // let mut taxa_ids = observation
+        //     .taxon
+        //     .as_ref()
+        //     .unwrap()
+        //     .ancestor_ids
+        //     .as_ref()
+        //     .unwrap()
+        //     .to_owned();
+        // taxa_ids.push(observation.taxon.as_ref().unwrap().id.unwrap());
+
+        tokio::spawn(async move {
+            let scores = scores.clone();
+            let taxa_ids = scores
+                .iter()
+                .map(|n| n.taxon.id.unwrap())
+                .collect::<Vec<_>>();
+            let result = inaturalist_fetch::fetch_taxa(taxa_ids).await.unwrap();
+            let mut hash_map = <crate::taxon_tree::TaxonTree as Default>::default();
+            for result in result.results {
+                let mut foo = &mut hash_map;
+                for ancestor_id in result.ancestor_ids.as_ref().unwrap() {
+                    // let new = crate::taxon_tree::TaxonTreeNode {
+                    // children: Default::default(),
+                    // };
+                    // foo.0.insert(ancestor_id, Default::default());
+                    println!("NEW ANCESTOR: {ancestor_id}");
+                    let taxon_tree_node =
+                        foo.0.entry(*ancestor_id).or_insert_with(|| TaxonTreeNode {
+                            children: Default::default(),
+                            score: scores
+                                .iter()
+                                .find(|&score| score.taxon.id == Some(*ancestor_id))
+                                .map(|score| score.combined_score),
+                        });
+                    foo = &mut taxon_tree_node.children;
+                }
+            }
+            // let taxon_tree = crate::taxon_tree::TaxonTree();
+            println!("{:#?}", hash_map);
+        });
+
+        self.results.sort_unstable_by(|a, b| {
+            a.scores[0]
+                .combined_score
+                .partial_cmp(&b.scores[0].combined_score)
+                .unwrap()
+                .reverse()
+        });
+
+        self.load_image_in_background_thread(observation);
+    }
+
+    fn load_image_in_background_thread(&self, observation: Box<Observation>) {
+        let image_store = self.image_store.clone();
+        tokio::spawn(async move {
+            if let Some(photo_url) = observation
+                .photos
+                .as_ref()
+                .and_then(|p| p.get(0).map(|p| p.url.to_owned()))
+            {
+                let image_url = photo_url.as_ref().unwrap().replace("square", "medium");
+                let image_store = image_store.clone();
+                fetch_image(image_url, image_store, *observation)
+                    .await
+                    .unwrap();
+            }
+            // image_store.begin_loading(results);
+        });
+    }
+}
+
 impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if let Ok(app_message) = self.rx_app_message.try_recv() {
@@ -27,74 +110,7 @@ impl eframe::App for TemplateApp {
                     self.loaded_geohashes += 1;
                 }
                 crate::AppMessage::Result((observation, scores)) => {
-                    let image_store = self.image_store.clone();
-                    self.results.push(Foo {
-                        observation: *observation.clone(),
-                        scores: scores.clone(),
-                        taxon_tree: Default::default(),
-                    });
-                    // let mut taxa_ids = observation
-                    //     .taxon
-                    //     .as_ref()
-                    //     .unwrap()
-                    //     .ancestor_ids
-                    //     .as_ref()
-                    //     .unwrap()
-                    //     .to_owned();
-                    // taxa_ids.push(observation.taxon.as_ref().unwrap().id.unwrap());
-
-                    tokio::spawn(async move {
-                        let scores = scores.clone();
-                        let taxa_ids = scores
-                            .iter()
-                            .map(|n| n.taxon.id.unwrap())
-                            .collect::<Vec<_>>();
-                        let result = inaturalist_fetch::fetch_taxa(taxa_ids).await.unwrap();
-                        let mut hash_map = <crate::taxon_tree::TaxonTree as Default>::default();
-                        for result in result.results {
-                            let mut foo = &mut hash_map;
-                            for ancestor_id in result.ancestor_ids.as_ref().unwrap() {
-                                // let new = crate::taxon_tree::TaxonTreeNode {
-                                // children: Default::default(),
-                                // };
-                                // foo.0.insert(ancestor_id, Default::default());
-                                println!("NEW ANCESTOR: {ancestor_id}");
-                                let taxon_tree_node =
-                                    foo.0.entry(*ancestor_id).or_insert_with(|| TaxonTreeNode {
-                                        children: Default::default(),
-                                        score: scores
-                                            .iter()
-                                            .find(|&score| score.taxon.id == Some(*ancestor_id))
-                                            .map(|score| score.combined_score)
-                                    });
-                                foo = &mut taxon_tree_node.children;
-                            }
-                        }
-                        // let taxon_tree = crate::taxon_tree::TaxonTree();
-                        println!("{:#?}", hash_map);
-                    });
-
-                    self.results.sort_unstable_by(|a, b| {
-                        a.scores[0]
-                            .combined_score
-                            .partial_cmp(&b.scores[0].combined_score)
-                            .unwrap()
-                            .reverse()
-                    });
-                    tokio::spawn(async move {
-                        if let Some(photo_url) = observation
-                            .photos
-                            .as_ref()
-                            .and_then(|p| p.get(0).map(|p| p.url.to_owned()))
-                        {
-                            let image_url = photo_url.as_ref().unwrap().replace("square", "medium");
-                            let image_store = image_store.clone();
-                            fetch_image(image_url, image_store, *observation)
-                                .await
-                                .unwrap();
-                        }
-                        // image_store.begin_loading(results);
-                    });
+                    self.handle_new_result(observation, scores)
                 }
             }
         }
