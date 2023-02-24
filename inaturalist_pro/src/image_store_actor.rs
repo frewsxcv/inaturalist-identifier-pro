@@ -1,0 +1,113 @@
+use actix::prelude::*;
+use image::EncodableLayout;
+use std::{sync, error, fmt, future::IntoFuture};
+use inaturalist::models::Observation;
+
+pub struct LoadImageMessage {
+    pub observation: Box<Observation>,
+}
+
+impl Message for LoadImageMessage {
+    type Result = ();
+}
+
+#[derive(Default)]
+pub struct ImageStoreActor {
+    pub image_store: sync::Arc<sync::RwLock<crate::image_store::ImageStore>>,
+}
+
+impl actix::Supervised for ImageStoreActor {}
+
+impl SystemService for ImageStoreActor {}
+
+impl Actor for ImageStoreActor {
+    type Context = Context<Self>;
+
+    fn started(&mut self, _ctx: &mut Self::Context) {
+        tracing::info!("STARTED");
+    }
+
+    fn stopped(&mut self, _ctx: &mut Self::Context) {
+        tracing::info!("STOPPED");
+    }
+
+    //fn stopping(&mut self, _ctx: &mut Self::Context) -> Running {
+        //Running::Continue
+    // }
+}
+
+impl Handler<LoadImageMessage> for ImageStoreActor {
+    type Result = ();
+
+    fn handle(&mut self, msg: LoadImageMessage, ctx: &mut Self::Context) -> Self::Result {
+        let image_store = self.image_store.clone();
+        tracing::info!("LOADING");
+
+        let c = async {
+            if let Some(photo_url) = msg.observation
+                .photos
+                .as_ref()
+                .and_then(|p| p.get(0).map(|p| p.url.to_owned()))
+            {
+                let image_url = photo_url.as_ref().unwrap().replace("square", "medium");
+                fetch_image(image_url, image_store, *msg.observation)
+                    .await
+                    .unwrap();
+                tracing::info!("LOADED");
+            }
+        };
+
+        ctx.spawn(Box::pin(c).into_actor(self));
+    }
+}
+
+async fn fetch_image(
+    url: String,
+    image_store: sync::Arc<sync::RwLock<crate::image_store::ImageStore>>,
+    observation: Observation,
+) -> Result<(), Box<dyn error::Error>> {
+    tracing::info!("Fetching image...");
+    let response = reqwest::get(url).await?;
+    tracing::info!("Fetched image. Parsing response...");
+    let retained_image = parse_image_response(response).await?;
+    tracing::info!("Parsed response. Storing image...");
+    image_store
+        .write()
+        .unwrap()
+        .insert(observation.id.unwrap(), retained_image);
+    tracing::info!("Stored iamge.");
+    Ok(())
+}
+
+#[derive(Debug)]
+enum ParseImageResponseError {
+    NoHeader,
+    NotAnImage,
+}
+
+impl fmt::Display for ParseImageResponseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
+}
+
+impl error::Error for ParseImageResponseError {}
+
+async fn parse_image_response(
+    response: reqwest::Response,
+) -> Result<egui_extras::RetainedImage, ParseImageResponseError> {
+    match response.headers().get(reqwest::header::CONTENT_TYPE) {
+        Some(header_value) => {
+            if header_value.as_bytes().starts_with(b"image/") {
+                Ok(egui_extras::RetainedImage::from_image_bytes(
+                    response.url().as_str().to_owned(),
+                    response.bytes().await.unwrap().as_bytes(),
+                )
+                .unwrap())
+            } else {
+                Err(ParseImageResponseError::NotAnImage)
+            }
+        }
+        None => Err(ParseImageResponseError::NoHeader),
+    }
+}

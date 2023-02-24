@@ -1,9 +1,10 @@
 #![feature(async_fn_in_trait)]
 #![feature(async_closure)]
 
-use actix::prelude::*;
+use actix::{prelude::*, SystemRegistry};
 use geohash_ext::GeohashGrid;
 use geohash_observations::GeohashObservations;
+use image_store_actor::ImageStoreActor;
 use inaturalist::models::Observation;
 use operations::Operation;
 use std::{error, sync};
@@ -12,6 +13,7 @@ use tokio::sync::mpsc::UnboundedSender;
 mod app;
 mod geohash_ext;
 mod geohash_observations;
+mod image_store_actor;
 mod image_store;
 mod operations;
 mod places;
@@ -103,6 +105,17 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         actor.start();
     });
 
+    let image_store = sync::Arc::new(sync::RwLock::new(image_store::ImageStore::default()));
+
+    let foo = image_store.clone();
+    let arbiter = Arbiter::new();
+    let addr = Supervisor::start_in_arbiter(&arbiter.handle(), |_| {
+        ImageStoreActor {
+            image_store: foo,
+        }
+    });
+    SystemRegistry::set(addr);
+
     let total_geohashes = grid.0.len();
 
     // FIXME: this thread never sleeps
@@ -125,7 +138,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                 loaded_geohashes: 0,
                 total_geohashes,
                 results: vec![],
-                image_store: sync::Arc::new(sync::RwLock::new(image_store::ImageStore::default())),
+                image_store: image_store,
             })
         }),
     )?;

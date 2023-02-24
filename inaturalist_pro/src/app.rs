@@ -1,9 +1,8 @@
-use core::fmt;
-use image::EncodableLayout;
+use actix::SystemService;
 use inaturalist::models::Observation;
-use std::{collections::HashMap, error, sync};
+use std::sync;
 
-use crate::taxon_tree::TaxonTreeNode;
+use crate::{taxon_tree::TaxonTreeNode, image_store_actor::{ImageStoreActor, LoadImageMessage}};
 
 pub(crate) struct TemplateApp {
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<crate::AppMessage>,
@@ -25,7 +24,6 @@ impl TemplateApp {
         observation: Box<Observation>,
         scores: Vec<inaturalist_fetch::ComputerVisionObservationScore>,
     ) {
-        let image_store = self.image_store.clone();
         self.results.push(Foo {
             observation: *observation.clone(),
             scores: scores.clone(),
@@ -84,21 +82,10 @@ impl TemplateApp {
     }
 
     fn load_image_in_background_thread(&self, observation: Box<Observation>) {
-        let image_store = self.image_store.clone();
-        actix::Arbiter::new().spawn(async move {
-            if let Some(photo_url) = observation
-                .photos
-                .as_ref()
-                .and_then(|p| p.get(0).map(|p| p.url.to_owned()))
-            {
-                let image_url = photo_url.as_ref().unwrap().replace("square", "medium");
-                let image_store = image_store.clone();
-                fetch_image(image_url, image_store, *observation)
-                    .await
-                    .unwrap();
-            }
-            // image_store.begin_loading(results);
-        });
+        tracing::info!("SENDING A MESSAGE");
+        ImageStoreActor::from_registry().try_send(LoadImageMessage {
+            observation,
+        }).unwrap();
     }
 }
 
@@ -157,12 +144,14 @@ impl eframe::App for TemplateApp {
                 ui.heading("Results");
                 for foo in &self.results {
                     ui.hyperlink(foo.observation.uri.as_ref().unwrap());
+                    // tracing::info!("meow: {:?}", (*self.image_store.read().unwrap()).hash_map.keys());
                     if let Some(image) = self
                         .image_store
                         .read()
                         .unwrap()
                         .load(foo.observation.id.unwrap())
                     {
+                        // tracing::info!("HIIII");
                         image.show(ui);
                         // TODO: print tree here
 
@@ -184,51 +173,4 @@ impl eframe::App for TemplateApp {
             });
         });
     }
-}
-
-#[derive(Debug)]
-enum ParseImageResponseError {
-    NoHeader,
-    NotAnImage,
-}
-
-impl fmt::Display for ParseImageResponseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        todo!()
-    }
-}
-
-impl error::Error for ParseImageResponseError {}
-
-async fn parse_image_response(
-    response: reqwest::Response,
-) -> Result<egui_extras::RetainedImage, ParseImageResponseError> {
-    match response.headers().get(reqwest::header::CONTENT_TYPE) {
-        Some(header_value) => {
-            if header_value.as_bytes().starts_with(b"image/") {
-                Ok(egui_extras::RetainedImage::from_image_bytes(
-                    response.url().as_str().to_owned(),
-                    response.bytes().await.unwrap().as_bytes(),
-                )
-                .unwrap())
-            } else {
-                Err(ParseImageResponseError::NotAnImage)
-            }
-        }
-        None => Err(ParseImageResponseError::NoHeader),
-    }
-}
-
-async fn fetch_image(
-    url: String,
-    image_store: sync::Arc<sync::RwLock<crate::image_store::ImageStore>>,
-    observation: Observation,
-) -> Result<(), Box<dyn error::Error>> {
-    let response = reqwest::get(url).await?;
-    let retained_image = parse_image_response(response).await?;
-    image_store
-        .write()
-        .unwrap()
-        .insert(observation.id.unwrap(), retained_image);
-    Ok(())
 }

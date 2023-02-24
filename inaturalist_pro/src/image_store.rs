@@ -1,8 +1,8 @@
 use std::collections;
 
 #[derive(Default)]
-pub(crate) struct ImageStore {
-    hash_map: collections::HashMap<i32, egui_extras::RetainedImage>,
+pub struct ImageStore {
+    pub hash_map: collections::HashMap<i32, egui_extras::RetainedImage>,
 }
 
 impl ImageStore {
