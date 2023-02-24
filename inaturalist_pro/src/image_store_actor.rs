@@ -22,18 +22,6 @@ impl SystemService for ImageStoreActor {}
 
 impl Actor for ImageStoreActor {
     type Context = Context<Self>;
-
-    fn started(&mut self, _ctx: &mut Self::Context) {
-        tracing::info!("STARTED");
-    }
-
-    fn stopped(&mut self, _ctx: &mut Self::Context) {
-        tracing::info!("STOPPED");
-    }
-
-    //fn stopping(&mut self, _ctx: &mut Self::Context) -> Running {
-    //Running::Continue
-    // }
 }
 
 impl Handler<LoadImageMessage> for ImageStoreActor {
