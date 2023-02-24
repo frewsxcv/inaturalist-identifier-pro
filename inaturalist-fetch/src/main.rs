@@ -1,9 +1,6 @@
 use oauth2::basic::BasicClient;
 
-use oauth2::{
-    AuthUrl, ClientId, CsrfToken, RedirectUrl,
-    Scope, TokenUrl,
-};
+use oauth2::{AuthUrl, ClientId, CsrfToken, RedirectUrl, Scope, TokenUrl};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create an OAuth2 client by specifying the client ID, client secret, authorization URL and
