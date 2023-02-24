@@ -1,8 +1,8 @@
 use oauth2::basic::BasicClient;
 use oauth2::reqwest::http_client;
 use oauth2::{
-    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge,
-    RedirectUrl, Scope, TokenResponse, TokenUrl,
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl,
+    Scope, TokenResponse, TokenUrl,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -13,7 +13,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None,
         // Some(ClientSecret::new("client_secret".to_string())),
         AuthUrl::new("https://www.inaturalist.org/oauth/authorize".to_string())?,
-        Some(TokenUrl::new("https://www.inaturalist.org/oauth/token".to_string())?),
+        Some(TokenUrl::new(
+            "https://www.inaturalist.org/oauth/token".to_string(),
+        )?),
     )
     // Set the URL the user will be redirected to after the authorization process.
     .set_redirect_uri(RedirectUrl::new("http://redirect".to_string())?);

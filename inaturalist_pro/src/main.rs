@@ -13,8 +13,8 @@ use tokio::sync::mpsc::UnboundedSender;
 mod app;
 mod geohash_ext;
 mod geohash_observations;
-mod image_store_actor;
 mod image_store;
+mod image_store_actor;
 mod operations;
 mod places;
 mod taxon_tree;
@@ -109,11 +109,8 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let foo = image_store.clone();
     let arbiter = Arbiter::new();
-    let addr = Supervisor::start_in_arbiter(&arbiter.handle(), |_| {
-        ImageStoreActor {
-            image_store: foo,
-        }
-    });
+    let addr =
+        Supervisor::start_in_arbiter(&arbiter.handle(), |_| ImageStoreActor { image_store: foo });
     SystemRegistry::set(addr);
 
     let total_geohashes = grid.0.len();

@@ -1,7 +1,7 @@
 use actix::prelude::*;
 use image::EncodableLayout;
-use std::{sync, error, fmt, future::IntoFuture};
 use inaturalist::models::Observation;
+use std::{error, fmt, future::IntoFuture, sync};
 
 pub struct LoadImageMessage {
     pub observation: Box<Observation>,
@@ -32,7 +32,7 @@ impl Actor for ImageStoreActor {
     }
 
     //fn stopping(&mut self, _ctx: &mut Self::Context) -> Running {
-        //Running::Continue
+    //Running::Continue
     // }
 }
 
@@ -44,7 +44,8 @@ impl Handler<LoadImageMessage> for ImageStoreActor {
         tracing::info!("LOADING");
 
         let c = async {
-            if let Some(photo_url) = msg.observation
+            if let Some(photo_url) = msg
+                .observation
                 .photos
                 .as_ref()
                 .and_then(|p| p.get(0).map(|p| p.url.to_owned()))

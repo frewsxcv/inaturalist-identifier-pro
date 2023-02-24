@@ -2,7 +2,10 @@ use actix::SystemService;
 use inaturalist::models::Observation;
 use std::sync;
 
-use crate::{taxon_tree::TaxonTreeNode, image_store_actor::{ImageStoreActor, LoadImageMessage}};
+use crate::{
+    image_store_actor::{ImageStoreActor, LoadImageMessage},
+    taxon_tree::TaxonTreeNode,
+};
 
 pub(crate) struct TemplateApp {
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<crate::AppMessage>,
@@ -83,9 +86,9 @@ impl TemplateApp {
 
     fn load_image_in_background_thread(&self, observation: Box<Observation>) {
         tracing::info!("SENDING A MESSAGE");
-        ImageStoreActor::from_registry().try_send(LoadImageMessage {
-            observation,
-        }).unwrap();
+        ImageStoreActor::from_registry()
+            .try_send(LoadImageMessage { observation })
+            .unwrap();
     }
 }
 
