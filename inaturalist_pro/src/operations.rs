@@ -64,7 +64,7 @@ impl Operation for TopImageScore {
     ) -> Result<(), Box<dyn error::Error>> {
         let results =
             inaturalist_fetch::fetch_computer_vision_observation_scores(&observation).await;
-        let url = observation.uri.clone().unwrap_or_default();
+        let _url = observation.uri.clone().unwrap_or_default();
         tx_app_message.send(AppMessage::Result((Box::new(observation), results.results)))?;
         Ok(())
     }

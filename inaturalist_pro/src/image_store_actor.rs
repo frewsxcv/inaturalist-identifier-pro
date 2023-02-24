@@ -1,7 +1,7 @@
 use actix::prelude::*;
 use image::EncodableLayout;
 use inaturalist::models::Observation;
-use std::{error, fmt, future::IntoFuture, sync};
+use std::{error, fmt, sync};
 
 pub struct LoadImageMessage {
     pub observation: Box<Observation>,
@@ -73,7 +73,7 @@ enum ParseImageResponseError {
 }
 
 impl fmt::Display for ParseImageResponseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
         todo!()
     }
 }
