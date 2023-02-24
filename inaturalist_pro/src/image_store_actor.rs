@@ -29,7 +29,6 @@ impl Handler<LoadImageMessage> for ImageStoreActor {
 
     fn handle(&mut self, msg: LoadImageMessage, ctx: &mut Self::Context) -> Self::Result {
         let image_store = self.image_store.clone();
-        tracing::info!("LOADING");
 
         let c = async {
             if let Some(photo_url) = msg
@@ -42,7 +41,6 @@ impl Handler<LoadImageMessage> for ImageStoreActor {
                 fetch_image(image_url, image_store, *msg.observation)
                     .await
                     .unwrap();
-                tracing::info!("LOADED");
             }
         };
 
