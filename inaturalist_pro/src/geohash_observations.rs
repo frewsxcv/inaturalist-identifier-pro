@@ -1,5 +1,6 @@
 use crate::geohash_ext::Geohash;
 use crate::Observation;
+use futures::StreamExt;
 use std::sync;
 
 #[derive(thiserror::Error, Debug)]
@@ -30,18 +31,22 @@ impl GeohashObservations {
             return Ok(());
         }
 
-        let subdivided_rects = inaturalist_fetch::subdivide_rect(self.0.bounding_rect).await?;
-        let num_rects = subdivided_rects.len();
-        for (i, s) in subdivided_rects.into_iter().enumerate() {
-            if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
-                tracing::info!("Hit soft limit.");
-                break;
-            }
+        inaturalist_fetch::subdivide_rect(self.0.bounding_rect)
+            .await
+            .filter(|_| {
+                if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
+                    tracing::info!("Hit soft limit.");
+                    return futures::future::ready(false);
+                }
+                futures::future::ready(true)
+            })
+            .then(|s| async {
+                inaturalist_fetch::fetch(s.unwrap().0, tx.clone(), soft_limit, request.clone())
+                    .await
+                    .unwrap()
+            })
+            .for_each(|_| futures::future::ready(())).await;
 
-            tracing::info!("Fetch tile ({} / {})", i + 1, num_rects);
-
-            inaturalist_fetch::fetch(s.0, tx.clone(), soft_limit, request.clone()).await?;
-        }
         Ok(())
     }
 }

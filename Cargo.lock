@@ -337,6 +337,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-stream"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad445822218ce64be7a341abfb0b1ea43b5c23aa83902542a4542e78309d8e5e"
+dependencies = [
+ "async-stream-impl",
+ "futures-core",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "async-stream-impl"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4655ae1a7b0cdf149156f780c5bf3f1352bc53cbd9e0a361a7ef7b22947e965"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "async-task"
 version = "4.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1749,6 +1771,7 @@ dependencies = [
  "eframe",
  "egui",
  "egui_extras",
+ "futures",
  "geo",
  "geohash",
  "geojson",
@@ -1771,6 +1794,8 @@ name = "inaturalist-fetch"
 version = "0.1.0"
 dependencies = [
  "async-recursion",
+ "async-stream",
+ "futures",
  "geo",
  "geo-ext",
  "governor",

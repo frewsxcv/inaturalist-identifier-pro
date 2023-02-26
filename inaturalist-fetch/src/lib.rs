@@ -1,5 +1,6 @@
+use futures::{FutureExt, StreamExt};
 use geo_ext::Halve;
-use std::{num, sync};
+use std::{num, pin::Pin, sync};
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
@@ -23,6 +24,7 @@ lazy_static::lazy_static! {
 
 const AUTHORIZATION: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2Nzc0NzcxMDB9.uZSj70VHmNCFKrTiakonihChDwRKbtTqjv4bcx6si9RqYXh6NPMJzV0uv8r8BVmej59qQ23dAKt4ikxMZHvl_Q";
 
+#[derive(Copy, Clone)]
 pub struct SubdividedRect(pub crate::Rect);
 
 /// iNaturalist will not let us page past 10,000 results.
@@ -30,37 +32,49 @@ const MAX_RESULTS: i32 = 10_000;
 
 const MAX_RESULTS_PER_PAGE: u32 = 200;
 
+type SubdivideRectReturn = Pin<
+    Box<
+        dyn futures::Stream<
+            Item = Result<
+                SubdividedRect,
+                inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
+            >,
+        > + Send,
+    >,
+>;
+
 #[async_recursion::async_recursion]
-pub async fn subdivide_rect(
-    rect: Rect,
-) -> Result<
-    Vec<SubdividedRect>,
-    inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
-> {
+pub async fn subdivide_rect(rect: Rect) -> SubdivideRectReturn {
     let page = 1;
     let per_page = 1;
     INATURALIST_RATE_LIMITER.until_ready().await;
 
-    let response = inaturalist::apis::observations_api::observations_get(
+    let response = match inaturalist::apis::observations_api::observations_get(
         &INATURALIST_REQUEST_CONFIG,
         build_params(rect, page, per_page),
     )
-    .await?;
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => return Box::pin(futures::future::err(e).into_stream()) as SubdivideRectReturn,
+    };
 
-    Ok(if response.total_results.unwrap() < MAX_RESULTS {
+    if response.total_results.unwrap() < MAX_RESULTS {
         tracing::info!("Rect is sufficient");
-        vec![SubdividedRect(rect)]
-    } else {
-        tracing::info!(
-            "Splitting rect (total_results: {})",
-            response.total_results.unwrap()
-        );
-        let (rect1, rect2) = rect.halve();
-        let mut s1 = subdivide_rect(rect1).await?;
-        let mut s2 = subdivide_rect(rect2).await?;
-        s1.append(&mut s2);
-        s1
-    })
+        return Box::pin(futures::future::ok(SubdividedRect(rect)).into_stream())
+            as SubdivideRectReturn;
+    }
+
+    tracing::info!(
+        "Splitting rect (total_results: {})",
+        response.total_results.unwrap()
+    );
+    let (rect1, rect2) = rect.halve();
+
+    Box::pin(futures::stream::select(
+        subdivide_rect(rect1).await,
+        subdivide_rect(rect2).await,
+    ))
 }
 
 pub async fn fetch(
