@@ -41,11 +41,19 @@ impl GeohashObservations {
                 futures::future::ready(true)
             })
             .then(|s| async {
-                inaturalist_fetch::fetch(s.unwrap().0, tx.clone(), soft_limit, request.clone())
+                let rect = match s {
+                    Ok(rect) => rect,
+                    Err(e) => return Err(FetchFromApiError::INaturalistApi(e)),
+                };
+                match inaturalist_fetch::fetch(rect.0, tx.clone(), soft_limit, request.clone())
                     .await
-                    .unwrap()
+                {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(FetchFromApiError::INaturalistApi(e)),
+                }
             })
-            .for_each(|_| futures::future::ready(())).await;
+            .for_each(|_| futures::future::ready(()))
+            .await;
 
         Ok(())
     }
