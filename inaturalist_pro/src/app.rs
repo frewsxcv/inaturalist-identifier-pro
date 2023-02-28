@@ -42,7 +42,7 @@ impl TemplateApp {
         //     .to_owned();
         // taxa_ids.push(observation.taxon.as_ref().unwrap().id.unwrap());
 
-        tokio::spawn(async move {
+        actix::spawn(async move {
             let scores = scores.clone();
             let taxa_ids = scores
                 .iter()

@@ -96,21 +96,22 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         tokio::sync::mpsc::unbounded_channel::<Observation>();
     let (tx_app_message, rx_app_message) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
 
-    let actor = ObservationLoaderActor {
-        tx_app_message: tx_app_message.clone(),
-        tx_load_observations,
-        grid: grid.clone(),
-    };
-    Arbiter::new().spawn(async {
-        actor.start();
+    ObservationLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
+        let tx_app_message = tx_app_message.clone();
+        let grid = grid.clone();
+        |_ctx| ObservationLoaderActor {
+            tx_app_message,
+            tx_load_observations,
+            grid,
+        }
     });
 
     let image_store = sync::Arc::new(sync::RwLock::new(image_store::ImageStore::default()));
 
-    let foo = image_store.clone();
-    let arbiter = Arbiter::new();
-    let addr =
-        Supervisor::start_in_arbiter(&arbiter.handle(), |_| ImageStoreActor { image_store: foo });
+    let addr = ImageStoreActor::start_in_arbiter(&Arbiter::new().handle(), {
+        let image_store = image_store.clone();
+        |_| ImageStoreActor { image_store }
+    });
     SystemRegistry::set(addr);
 
     let total_geohashes = grid.0.len();
@@ -135,7 +136,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                 loaded_geohashes: 0,
                 total_geohashes,
                 results: vec![],
-                image_store: image_store,
+                image_store,
             })
         }),
     )?;
