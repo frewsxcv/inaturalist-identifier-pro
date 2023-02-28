@@ -125,10 +125,9 @@ impl eframe::App for TemplateApp {
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
             ui.heading("Side Panel");
 
-            // ui.horizontal(|ui| {
-            //     ui.label("Write something: ");
-            //     ui.text_edit_singleline(label);
-            // });
+            ui.horizontal(|ui| {
+                ui.label(format!("Loaded observations: {}", self.results.len()));
+            });
 
             // ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
             // if ui.button("Increment").clicked() {
