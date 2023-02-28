@@ -137,6 +137,7 @@ impl eframe::App for TemplateApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            let rect = ui.max_rect();
             egui::ScrollArea::vertical().show(ui, |ui| {
                 if self.loaded_geohashes < self.total_geohashes {
                     ui.heading("Loading data");
@@ -146,7 +147,7 @@ impl eframe::App for TemplateApp {
                 }
                 ui.heading("Results");
                 for foo in &self.results {
-                    ui.hyperlink(foo.observation.uri.as_ref().unwrap());
+                    let hyperlink = ui.hyperlink(foo.observation.uri.as_ref().unwrap());
                     // tracing::info!("meow: {:?}", (*self.image_store.read().unwrap()).hash_map.keys());
                     if let Some(image) = self
                         .image_store
@@ -154,8 +155,15 @@ impl eframe::App for TemplateApp {
                         .unwrap()
                         .load(foo.observation.id.unwrap())
                     {
+                        ui.add_sized(image.size_vec2(), |ui: &mut egui::Ui| {
+                            if ui.max_rect().intersects(rect) {
+                                image.show(ui)
+                            } else {
+                                ui.spinner()
+                            }
+                        });
+                        // }
                         // tracing::info!("HIIII");
-                        image.show(ui);
                         // TODO: print tree here
 
                         // CollapsingHeader::new(name)

@@ -22,7 +22,7 @@ lazy_static::lazy_static! {
         governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
 }
 
-const AUTHORIZATION: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2Nzc0NzcxMDB9.uZSj70VHmNCFKrTiakonihChDwRKbtTqjv4bcx6si9RqYXh6NPMJzV0uv8r8BVmej59qQ23dAKt4ikxMZHvl_Q";
+const AUTHORIZATION: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2Nzc2MzIxODV9.0ymO3vIRqUJ1DCFT8HWYrvkIINJxA8lkat5PTNNFcBZLGfgHIExoYiee7iHOKy9WtoruSGN2BX0PnN6M3kNFyA";
 
 #[derive(Copy, Clone)]
 pub struct SubdividedRect(pub crate::Rect);
@@ -146,6 +146,8 @@ fn build_params(
         // identified: Some(true),
         // identifications: Some(String::from("most_agree")),
         // native: Some(true),
+        order: Some("desc".to_string()),
+        order_by: Some("observed_on".to_string()),
         per_page: Some(per_page.to_string()),
         page: Some(page.to_string()),
         ..Default::default()
