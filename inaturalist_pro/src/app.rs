@@ -85,7 +85,6 @@ impl TemplateApp {
     }
 
     fn load_image_in_background_thread(&self, observation: Box<Observation>) {
-        tracing::info!("SENDING A MESSAGE");
         ImageStoreActor::from_registry()
             .try_send(LoadImageMessage { observation })
             .unwrap();
