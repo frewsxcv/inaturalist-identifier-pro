@@ -1,11 +1,10 @@
-#![feature(async_fn_in_trait)]
 #![feature(async_closure)]
 
 use actix::{prelude::*, SystemRegistry};
 use geohash_ext::GeohashGrid;
 use image_store_actor::ImageStoreActor;
 use inaturalist::models::Observation;
-use operations::Operation;
+use observation_processor_actor::ObservationProcessorActor;
 use std::{error, sync};
 use observation_loader_actor::ObservationLoaderActor;
 
@@ -15,6 +14,7 @@ mod geohash_observations;
 mod image_store;
 mod image_store_actor;
 mod observation_loader_actor;
+mod observation_processor_actor;
 mod operations;
 mod places;
 mod taxon_tree;
@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let grid = GeohashGrid::from_rect(*places::NYC, 4);
 
-    let mut operation = CurOperation::default();
+    let operation = CurOperation::default();
 
     let (tx_load_observations, mut rx_load_observations) =
         tokio::sync::mpsc::unbounded_channel::<Observation>();
@@ -70,14 +70,11 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let total_geohashes = grid.0.len();
 
-    // FIXME: this thread never sleeps
-    Arbiter::new().spawn(async move {
-        while let Some(observation) = rx_load_observations.recv().await {
-            // operation.visit_geohash_observations(geohash, &observations).await;
-            operation
-                .visit_observation(observation, tx_app_message.clone())
-                .await
-                .unwrap();
+    ObservationProcessorActor::start_in_arbiter(&Arbiter::new().handle(), {
+        let tx_app_message = tx_app_message.clone();
+        |_ctx| observation_processor_actor::ObservationProcessorActor {
+            tx_app_message,
+            operation,
         }
     });
 

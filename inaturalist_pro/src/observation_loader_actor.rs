@@ -10,7 +10,6 @@ pub struct ObservationLoaderActor {
     pub tx_load_observations: UnboundedSender<Observation>,
 }
 
-/// Declare actor and its context
 impl Actor for ObservationLoaderActor {
     type Context = Context<Self>;
 

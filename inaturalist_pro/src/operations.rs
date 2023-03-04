@@ -12,7 +12,7 @@ pub trait Operation {
         inaturalist::apis::observations_api::ObservationsGetParams::default()
     }
 
-    async fn visit_observation(
+    fn visit_observation(
         &mut self,
         _observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
@@ -32,7 +32,7 @@ pub trait Operation {
 pub struct NoOp(pub Vec<Observation>);
 
 impl Operation for NoOp {
-    async fn visit_observation(
+    fn visit_observation(
         &mut self,
         observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
@@ -57,13 +57,14 @@ impl Operation for TopImageScore {
         }
     }
 
-    async fn visit_observation(
+    fn visit_observation(
         &mut self,
         observation: crate::Observation,
         tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) -> Result<(), Box<dyn error::Error>> {
-        let results =
-            inaturalist_fetch::fetch_computer_vision_observation_scores(&observation).await;
+        let results = futures::executor::block_on(
+            inaturalist_fetch::fetch_computer_vision_observation_scores(&observation),
+        );
         let _url = observation.uri.clone().unwrap_or_default();
         tx_app_message.send(AppMessage::Result((Box::new(observation), results.results)))?;
         Ok(())
@@ -74,7 +75,7 @@ impl Operation for TopImageScore {
 pub struct PrintPlantae(pub Vec<Observation>);
 
 impl Operation for PrintPlantae {
-    async fn visit_observation(
+    fn visit_observation(
         &mut self,
         observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
@@ -92,7 +93,7 @@ impl Operation for PrintPlantae {
 pub struct PrintAngiospermae(pub Vec<Observation>);
 
 impl Operation for PrintAngiospermae {
-    async fn visit_observation(
+    fn visit_observation(
         &mut self,
         observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
