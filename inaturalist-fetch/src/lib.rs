@@ -35,11 +35,13 @@ const MAX_RESULTS_PER_PAGE: u32 = 200;
 type SubdivideRectReturn = Pin<
     Box<
         dyn futures::Stream<
-            Item = Result<
-                SubdividedRect,
-                inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
-            >,
-        > + Send,
+                Item = Result<
+                    SubdividedRect,
+                    inaturalist::apis::Error<
+                        inaturalist::apis::observations_api::ObservationsGetError,
+                    >,
+                >,
+            > + Send,
     >,
 >;
 

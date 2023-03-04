@@ -4,9 +4,9 @@ use actix::{prelude::*, SystemRegistry};
 use geohash_ext::GeohashGrid;
 use image_store_actor::ImageStoreActor;
 use inaturalist::models::Observation;
+use observation_loader_actor::ObservationLoaderActor;
 use observation_processor_actor::ObservationProcessorActor;
 use std::{error, sync};
-use observation_loader_actor::ObservationLoaderActor;
 
 mod app;
 mod geohash_ext;

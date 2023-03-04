@@ -58,7 +58,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let response = oauth2::reqwest::http_client(oauth2::HttpRequest {
             body: vec![],
             headers,
-            url: "https://www.inaturalist.org/users/api_token".try_into().unwrap(),
+            url: "https://www.inaturalist.org/users/api_token"
+                .try_into()
+                .unwrap(),
             method: Method::GET,
         })
         .unwrap();

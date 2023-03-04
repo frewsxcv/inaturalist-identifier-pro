@@ -1,8 +1,8 @@
-use crate::{geohash_observations::GeohashObservations, operations::Operation};
-use tokio::sync::mpsc::UnboundedSender;
-use actix::prelude::*;
 use crate::geohash_ext::GeohashGrid;
+use crate::{geohash_observations::GeohashObservations, operations::Operation};
+use actix::prelude::*;
 use inaturalist::models::Observation;
+use tokio::sync::mpsc::UnboundedSender;
 
 pub struct ObservationLoaderActor {
     pub tx_app_message: UnboundedSender<crate::AppMessage>,
@@ -33,7 +33,10 @@ impl Actor for ObservationLoaderActor {
                     )
                     .await
                     .unwrap();
-                tx_app_message.clone().send(crate::AppMessage::Progress).unwrap();
+                tx_app_message
+                    .clone()
+                    .send(crate::AppMessage::Progress)
+                    .unwrap();
             }
             // FIXME: call below
             // operation.lock().await.finish();
