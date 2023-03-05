@@ -1,4 +1,5 @@
 use crate::geohash_ext::GeohashGrid;
+use crate::observation_processor_actor::{ObservationProcessorActor, ProcessObservationMessage};
 use crate::{geohash_observations::GeohashObservations, operations::Operation};
 use actix::prelude::*;
 use inaturalist::models::Observation;
@@ -7,7 +8,6 @@ use tokio::sync::mpsc::UnboundedSender;
 pub struct ObservationLoaderActor {
     pub tx_app_message: UnboundedSender<crate::AppMessage>,
     pub grid: GeohashGrid,
-    pub tx_load_observations: UnboundedSender<Observation>,
 }
 
 impl Actor for ObservationLoaderActor {
@@ -15,7 +15,6 @@ impl Actor for ObservationLoaderActor {
 
     fn started(&mut self, ctx: &mut Self::Context) {
         let grid = self.grid.clone();
-        let tx_load_observations = self.tx_load_observations.clone();
         let tx_app_message = self.tx_app_message.clone();
         let t = async move {
             for (i, geohash) in grid.clone().0.into_iter().enumerate() {
@@ -27,7 +26,11 @@ impl Actor for ObservationLoaderActor {
                 );
                 GeohashObservations(geohash)
                     .fetch_from_api(
-                        tx_load_observations.clone(),
+                        |observation| {
+                            ObservationProcessorActor::from_registry()
+                                .try_send(ProcessObservationMessage { observation })
+                                .unwrap();
+                        },
                         &crate::FETCH_SOFT_LIMIT,
                         crate::CurOperation::request(),
                     )

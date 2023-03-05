@@ -22,7 +22,7 @@ pub struct GeohashObservations(pub Geohash);
 impl GeohashObservations {
     pub async fn fetch_from_api(
         &self,
-        tx: tokio::sync::mpsc::UnboundedSender<Observation>,
+        on_observation: impl Fn(Observation),
         soft_limit: &sync::atomic::AtomicI32,
         request: inaturalist::apis::observations_api::ObservationsGetParams,
     ) -> Result<(), FetchFromApiError> {
@@ -45,7 +45,7 @@ impl GeohashObservations {
                     Ok(rect) => rect,
                     Err(e) => return Err(FetchFromApiError::INaturalistApi(e)),
                 };
-                match inaturalist_fetch::fetch(rect.0, tx.clone(), soft_limit, request.clone())
+                match inaturalist_fetch::fetch(rect.0, |o| on_observation(o), soft_limit, request.clone())
                     .await
                 {
                     Ok(_) => Ok(()),

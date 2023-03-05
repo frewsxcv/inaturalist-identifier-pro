@@ -22,7 +22,7 @@ lazy_static::lazy_static! {
         governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
 }
 
-const AUTHORIZATION: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2Nzc2MzIxODV9.0ymO3vIRqUJ1DCFT8HWYrvkIINJxA8lkat5PTNNFcBZLGfgHIExoYiee7iHOKy9WtoruSGN2BX0PnN6M3kNFyA";
+const AUTHORIZATION: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2NzgxNDMyMDd9.OfXJsk3P-Yv5i9q8WmP-RBIOj6wuFowcmBdif1J_2bGVyEFCw_-5OQcB261XgC_BNAPmwd4z0DvB4cBJ6Yb-cQ";
 
 #[derive(Copy, Clone)]
 pub struct SubdividedRect(pub crate::Rect);
@@ -81,7 +81,7 @@ pub async fn subdivide_rect(rect: Rect) -> SubdivideRectReturn {
 
 pub async fn fetch(
     rect: Rect,
-    tx: tokio::sync::mpsc::UnboundedSender<inaturalist::models::Observation>,
+    on_observation: impl Fn(inaturalist::models::Observation),
     soft_limit: &sync::atomic::AtomicI32,
     request: inaturalist::apis::observations_api::ObservationsGetParams,
 ) -> Result<(), inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>>
@@ -107,7 +107,7 @@ pub async fn fetch(
             sync::atomic::Ordering::Relaxed,
         );
         for result in response.results {
-            tx.send(result).unwrap();
+            on_observation(result);
         }
 
         let per_page = response.per_page.unwrap() as u32;

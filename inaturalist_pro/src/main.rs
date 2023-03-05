@@ -46,8 +46,6 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let operation = CurOperation::default();
 
-    let (tx_load_observations, mut rx_load_observations) =
-        tokio::sync::mpsc::unbounded_channel::<Observation>();
     let (tx_app_message, rx_app_message) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
 
     ObservationLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
@@ -55,7 +53,6 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         let grid = grid.clone();
         |_ctx| ObservationLoaderActor {
             tx_app_message,
-            tx_load_observations,
             grid,
         }
     });
@@ -70,13 +67,13 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let total_geohashes = grid.0.len();
 
-    ObservationProcessorActor::start_in_arbiter(&Arbiter::new().handle(), {
-        let tx_app_message = tx_app_message.clone();
+    let addr = ObservationProcessorActor::start_in_arbiter(&Arbiter::new().handle(), {
         |_ctx| observation_processor_actor::ObservationProcessorActor {
             tx_app_message,
             operation,
         }
     });
+    SystemRegistry::set(addr);
 
     eframe::run_native(
         "eframe template",

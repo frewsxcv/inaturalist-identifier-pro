@@ -15,7 +15,7 @@ impl Default for ObservationProcessorActor {
 }
 
 pub struct ProcessObservationMessage {
-    observation: Observation,
+    pub observation: Observation,
 }
 
 impl Message for ProcessObservationMessage {
@@ -33,9 +33,10 @@ impl Actor for ObservationProcessorActor {
 impl Handler<ProcessObservationMessage> for ObservationProcessorActor {
     type Result = ();
 
-    fn handle(&mut self, msg: ProcessObservationMessage, ctx: &mut Self::Context) -> Self::Result {
-        let tx_app_message = self.tx_app_message.clone();
+    fn handle(&mut self, msg: ProcessObservationMessage, _ctx: &mut Self::Context) -> Self::Result {
+        println!("VISITED");
         self.operation
-            .visit_observation(msg.observation, tx_app_message);
+            .visit_observation(msg.observation, self.tx_app_message.clone())
+            .unwrap();
     }
 }
