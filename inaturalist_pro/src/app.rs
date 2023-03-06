@@ -120,11 +120,6 @@ impl eframe::App for TemplateApp {
             ui.horizontal(|ui| {
                 ui.label(format!("Loaded observations: {}", self.results.len()));
             });
-
-            // ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-            // if ui.button("Increment").clicked() {
-            //     *value += 1.0;
-            // }
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -140,7 +135,6 @@ impl eframe::App for TemplateApp {
                 ui.heading("Results");
                 for foo in &self.results {
                     ui.horizontal(|ui| {
-                        // tracing::info!("meow: {:?}", (*self.image_store.read().unwrap()).hash_map.keys());
                         if let Some(image) = self
                             .image_store
                             .read()
@@ -154,8 +148,7 @@ impl eframe::App for TemplateApp {
                                     ui.spinner()
                                 }
                             });
-                            // }
-                            // tracing::info!("HIIII");
+
                             // TODO: print tree here
 
                             // CollapsingHeader::new(name)
