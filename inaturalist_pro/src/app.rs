@@ -145,7 +145,7 @@ impl eframe::App for TemplateApp {
                 }
                 ui.heading("Results");
                 for foo in &self.results {
-                    let hyperlink = ui.hyperlink(foo.observation.uri.as_ref().unwrap());
+                    ui.hyperlink(foo.observation.uri.as_ref().unwrap());
                     // tracing::info!("meow: {:?}", (*self.image_store.read().unwrap()).hash_map.keys());
                     if let Some(image) = self
                         .image_store
