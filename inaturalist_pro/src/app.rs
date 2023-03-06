@@ -104,13 +104,6 @@ impl eframe::App for TemplateApp {
             }
         }
 
-        // Redraw every 1 second
-        let cloned_ctx = ctx.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            cloned_ctx.request_repaint();
-        });
-
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
@@ -142,41 +135,46 @@ impl eframe::App for TemplateApp {
                     ui.add(egui::ProgressBar::new(
                         self.loaded_geohashes as f32 / self.total_geohashes as f32,
                     ));
+                    return;
                 }
                 ui.heading("Results");
                 for foo in &self.results {
-                    ui.hyperlink(foo.observation.uri.as_ref().unwrap());
-                    // tracing::info!("meow: {:?}", (*self.image_store.read().unwrap()).hash_map.keys());
-                    if let Some(image) = self
-                        .image_store
-                        .read()
-                        .unwrap()
-                        .load(foo.observation.id.unwrap())
-                    {
-                        ui.add_sized(image.size_vec2(), |ui: &mut egui::Ui| {
-                            if ui.max_rect().intersects(rect) {
-                                image.show(ui)
-                            } else {
-                                ui.spinner()
-                            }
-                        });
-                        // }
-                        // tracing::info!("HIIII");
-                        // TODO: print tree here
+                    ui.horizontal(|ui| {
+                        // tracing::info!("meow: {:?}", (*self.image_store.read().unwrap()).hash_map.keys());
+                        if let Some(image) = self
+                            .image_store
+                            .read()
+                            .unwrap()
+                            .load(foo.observation.id.unwrap())
+                        {
+                            ui.add_sized(image.size_vec2(), |ui: &mut egui::Ui| {
+                                if ui.max_rect().intersects(rect) {
+                                    image.show(ui)
+                                } else {
+                                    ui.spinner()
+                                }
+                            });
+                            // }
+                            // tracing::info!("HIIII");
+                            // TODO: print tree here
 
-                        // CollapsingHeader::new(name)
-                        // .default_open(depth < 1)
-                        // .show(ui, |ui| self.children_ui(ui, depth))
-                        // .body_returned
-                        // .unwrap_or(Action::Keep)
+                            // CollapsingHeader::new(name)
+                            // .default_open(depth < 1)
+                            // .show(ui, |ui| self.children_ui(ui, depth))
+                            // .body_returned
+                            // .unwrap_or(Action::Keep)
 
-                        for score in &foo.scores {
-                            ui.label(format!("Guess: {}", score.taxon.name.as_ref().unwrap()));
-                            ui.label(format!("Score: {}", score.combined_score));
+                            ui.vertical(|ui| {
+                                ui.hyperlink(foo.observation.uri.as_ref().unwrap());
+                                for score in &foo.scores {
+                                    ui.label(format!("Guess: {}", score.taxon.name.as_ref().unwrap()));
+                                    ui.label(format!("Score: {}", score.combined_score));
+                                }
+                            });
+                        } else {
+                            ui.spinner();
                         }
-                    } else {
-                        ui.spinner();
-                    }
+                    });
                     ui.separator();
                 }
             });
