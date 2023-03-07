@@ -1,4 +1,4 @@
-use actix::SystemService;
+use actix::{SystemService, Arbiter};
 use inaturalist::models::Observation;
 use std::sync;
 
@@ -42,7 +42,7 @@ impl TemplateApp {
         //     .to_owned();
         // taxa_ids.push(observation.taxon.as_ref().unwrap().id.unwrap());
 
-        actix::spawn(async move {
+        Arbiter::new().spawn(async move {
             let scores = scores.clone();
             let taxa_ids = scores
                 .iter()
@@ -57,7 +57,6 @@ impl TemplateApp {
                     // children: Default::default(),
                     // };
                     // foo.0.insert(ancestor_id, Default::default());
-                    println!("NEW ANCESTOR: {ancestor_id}");
                     let taxon_tree_node =
                         foo.0.entry(*ancestor_id).or_insert_with(|| TaxonTreeNode {
                             children: Default::default(),
