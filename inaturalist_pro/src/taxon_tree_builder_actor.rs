@@ -38,26 +38,32 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
     fn handle(&mut self, msg: BuildTaxonTreeMessage, ctx: &mut Self::Context) -> Self::Result {
         let tx_app_message = self.tx_app_message.clone();
         let t = async move {
-            let taxa_ids = msg.scores
+            let taxa_ids = msg
+                .scores
                 .iter()
                 .map(|n| n.taxon.id.unwrap())
                 .collect::<Vec<_>>();
-            let result = inaturalist_fetch::fetch_taxa(taxa_ids).await.unwrap();
+            let taxa = inaturalist_fetch::fetch_taxa(taxa_ids)
+                .await
+                .unwrap()
+                .results;
             let mut hash_map = <crate::taxon_tree::TaxonTree as Default>::default();
-            for result in result.results {
+            for (taxon_guess, score) in taxa.iter().zip(msg.scores.iter().map(|s| s.combined_score))
+            {
                 let mut foo = &mut hash_map;
-                for ancestor_id in result.ancestor_ids.as_ref().unwrap() {
-                    let inner_result = inaturalist_fetch::fetch_taxa(vec![*ancestor_id])
-                        .await
-                        .unwrap();
-                    let taxon_tree_node = foo.0.entry(*ancestor_id).or_insert_with(|| TaxonTreeNode {
-                        taxon: inner_result.results[0].clone(),
-                        children: Default::default(),
-                        score: msg.scores
-                            .iter()
-                            .find(|&score| score.taxon.id == Some(*ancestor_id))
-                            .map(|score| score.combined_score),
-                    });
+                for ancestor_id in taxon_guess.ancestor_ids.as_ref().unwrap() {
+                    // let inner_result = inaturalist_fetch::fetch_taxa(vec![*ancestor_id])
+                    // .await
+                    // .unwrap();
+                    let taxon_tree_node = foo
+                        .0
+                        .entry(*ancestor_id)
+                        .and_modify(|n| { n.score += score })
+                        .or_insert_with(|| TaxonTreeNode {
+                            taxon_id: *ancestor_id,
+                            children: Default::default(),
+                            score,
+                        });
                     foo = &mut taxon_tree_node.children;
                 }
             }
