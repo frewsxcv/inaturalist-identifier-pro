@@ -6,6 +6,7 @@ use image_store_actor::ImageStoreActor;
 use inaturalist::models::Observation;
 use observation_loader_actor::ObservationLoaderActor;
 use observation_processor_actor::ObservationProcessorActor;
+use taxon_tree_builder_actor::TaxonTreeBuilderActor;
 use std::{error, sync};
 
 mod app;
@@ -18,6 +19,7 @@ mod observation_processor_actor;
 mod operations;
 mod places;
 mod taxon_tree;
+mod taxon_tree_builder_actor;
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
@@ -61,8 +63,15 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         }
     });
 
-    let image_store = sync::Arc::new(sync::RwLock::new(image_store::ImageStore::default()));
+    let addr = TaxonTreeBuilderActor::start_in_arbiter(&Arbiter::new().handle(), {
+        let tx_app_message = tx_app_message.clone();
+        move |_ctx| TaxonTreeBuilderActor {
+            tx_app_message,
+        }
+    });
+    SystemRegistry::set(addr);
 
+    let image_store = sync::Arc::new(sync::RwLock::new(image_store::ImageStore::default()));
     let addr = ImageStoreActor::start_in_arbiter(&Arbiter::new().handle(), {
         let image_store = image_store.clone();
         |_| ImageStoreActor { image_store }

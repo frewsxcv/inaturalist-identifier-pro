@@ -2,7 +2,6 @@ use crate::geohash_ext::GeohashGrid;
 use crate::observation_processor_actor::{ObservationProcessorActor, ProcessObservationMessage};
 use crate::{geohash_observations::GeohashObservations, operations::Operation};
 use actix::prelude::*;
-use inaturalist::models::Observation;
 use tokio::sync::mpsc::UnboundedSender;
 
 pub struct ObservationLoaderActor {

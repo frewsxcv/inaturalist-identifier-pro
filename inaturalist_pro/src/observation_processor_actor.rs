@@ -34,7 +34,6 @@ impl Handler<ProcessObservationMessage> for ObservationProcessorActor {
     type Result = ();
 
     fn handle(&mut self, msg: ProcessObservationMessage, _ctx: &mut Self::Context) -> Self::Result {
-        println!("VISITED");
         self.operation
             .visit_observation(msg.observation, self.tx_app_message.clone())
             .unwrap();

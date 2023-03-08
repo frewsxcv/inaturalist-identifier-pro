@@ -1,10 +1,11 @@
-use actix::{Arbiter, SystemService};
+use actix::{Arbiter, SystemService, Actor};
 use inaturalist::models::Observation;
 use std::sync;
 
 use crate::{
     image_store_actor::{ImageStoreActor, LoadImageMessage},
     taxon_tree::TaxonTreeNode,
+    taxon_tree_builder_actor::{TaxonTreeBuilderActor, BuildTaxonTreeMessage},
 };
 
 pub(crate) struct App {
@@ -43,41 +44,12 @@ impl App {
         //     .to_owned();
         // taxa_ids.push(observation.taxon.as_ref().unwrap().id.unwrap());
 
-        Arbiter::new().spawn({
-            let observation = observation.clone();
-            let tx_app_message = self.tx_app_message.clone();
-            async move {
-                let scores = scores.clone();
-                let taxa_ids = scores
-                    .iter()
-                    .map(|n| n.taxon.id.unwrap())
-                    .collect::<Vec<_>>();
-                let result = inaturalist_fetch::fetch_taxa(taxa_ids).await.unwrap();
-                let mut hash_map = <crate::taxon_tree::TaxonTree as Default>::default();
-                for result in result.results {
-                    let mut foo = &mut hash_map;
-                    for ancestor_id in result.ancestor_ids.as_ref().unwrap() {
-                        let inner_result = inaturalist_fetch::fetch_taxa(vec![*ancestor_id]).await.unwrap();
-                        let taxon_tree_node =
-                            foo.0.entry(*ancestor_id).or_insert_with(|| TaxonTreeNode {
-                                taxon: inner_result.results[0].clone(),
-                                children: Default::default(),
-                                score: scores
-                                    .iter()
-                                    .find(|&score| score.taxon.id == Some(*ancestor_id))
-                                    .map(|score| score.combined_score),
-                            });
-                        foo = &mut taxon_tree_node.children;
-                    }
-                }
-                tx_app_message
-                    .send(crate::AppMessage::TaxonTree {
-                        observation_id: observation.id.unwrap(),
-                        taxon_tree: hash_map,
-                    })
-                    .unwrap();
-            }
-        });
+        TaxonTreeBuilderActor::from_registry()
+            .try_send(BuildTaxonTreeMessage {
+                observation_id: observation.id.unwrap(),
+                scores,
+            })
+            .unwrap();
 
         self.results.sort_unstable_by(|a, b| {
             a.scores[0]
@@ -204,24 +176,18 @@ impl egui::Widget for TaxonTreeWidget {
             self.root_node.taxon.id.unwrap(),
         );
 
-        egui::CollapsingHeader::new(
-            self.root_node
-                .taxon
-                .preferred_common_name
-                .as_ref()
-                .unwrap(),
-        )
-        .id_source(collapsing_header_id)
-        .default_open(true)
-        .show(ui, |ui| {
-            for child in self.root_node.children.0.values() {
-                ui.add(TaxonTreeWidget {
-                    observation: self.observation.clone(),
-                    root_node: child.clone(),
-                });
-            }
-        })
-        .header_response
+        egui::CollapsingHeader::new(self.root_node.taxon.preferred_common_name.as_ref().unwrap())
+            .id_source(collapsing_header_id)
+            .default_open(true)
+            .show(ui, |ui| {
+                for child in self.root_node.children.0.values() {
+                    ui.add(TaxonTreeWidget {
+                        observation: self.observation.clone(),
+                        root_node: child.clone(),
+                    });
+                }
+            })
+            .header_response
         // .bodyreturned
         // .unwrap_or(Action::Keep)
     }
