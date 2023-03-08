@@ -1,4 +1,4 @@
-use futures::{FutureExt, StreamExt};
+use futures::FutureExt;
 use geo_ext::Halve;
 use std::{num, pin::Pin, sync};
 
@@ -22,7 +22,7 @@ lazy_static::lazy_static! {
         governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
 }
 
-const AUTHORIZATION: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2NzgxNDMyMDd9.OfXJsk3P-Yv5i9q8WmP-RBIOj6wuFowcmBdif1J_2bGVyEFCw_-5OQcB261XgC_BNAPmwd4z0DvB4cBJ6Yb-cQ";
+const AUTHORIZATION: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2NzgyNTAwMzh9.T37SnJz5f_Z9scrMmHmRqqDeFFcVlXXjbTLm1M3n9HDqaXnHohMRxKK2Inrx5-gl027Mbn5sQQIc63bIPGeLpg";
 
 #[derive(Copy, Clone)]
 pub struct SubdividedRect(pub crate::Rect);
@@ -268,6 +268,7 @@ pub async fn fetch_taxa(
     inaturalist::models::TaxaShowResponse,
     inaturalist::apis::Error<inaturalist::apis::taxa_api::TaxaIdGetError>,
 > {
+    tracing::info!("Fetching taxa. IDs = {:?}", taxa_ids);
     INATURALIST_RATE_LIMITER.until_ready().await;
     let taxa = inaturalist::apis::taxa_api::taxa_id_get(
         &INATURALIST_REQUEST_CONFIG,

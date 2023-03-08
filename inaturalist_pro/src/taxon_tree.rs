@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 
-#[derive(Debug, Default)]
+use inaturalist::models::ShowTaxon;
+
+#[derive(Debug, Default, Clone)]
 pub struct TaxonTree(pub HashMap<i32, TaxonTreeNode>);
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TaxonTreeNode {
+    pub taxon: ShowTaxon,
     pub children: TaxonTree,
     pub score: Option<f32>,
 }

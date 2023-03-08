@@ -30,6 +30,10 @@ pub enum AppMessage {
             Vec<inaturalist_fetch::ComputerVisionObservationScore>,
         ),
     ),
+    TaxonTree {
+        observation_id: i32,
+        taxon_tree: taxon_tree::TaxonTree,
+    },
 }
 
 lazy_static::lazy_static! {
@@ -68,6 +72,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let total_geohashes = grid.0.len();
 
     let addr = ObservationProcessorActor::start_in_arbiter(&Arbiter::new().handle(), {
+        let tx_app_message = tx_app_message.clone();
         |_ctx| observation_processor_actor::ObservationProcessorActor {
             tx_app_message,
             operation,
@@ -79,7 +84,8 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         "eframe template",
         eframe::NativeOptions::default(),
         Box::new(move |_| {
-            Box::new(crate::app::TemplateApp {
+            Box::new(crate::app::App {
+                tx_app_message,
                 rx_app_message,
                 loaded_geohashes: 0,
                 total_geohashes,
