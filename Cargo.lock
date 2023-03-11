@@ -1793,6 +1793,7 @@ dependencies = [
  "ordered-float",
  "reqwest",
  "serde",
+ "serde_json",
  "tokio",
  "tracing",
 ]

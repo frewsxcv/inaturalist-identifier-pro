@@ -6,6 +6,7 @@ use oauth2::{
     TokenUrl,
 };
 use reqwest::Method;
+use serde::Deserialize;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create an OAuth2 client by specifying the client ID, client secret, authorization URL and
@@ -43,12 +44,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_pkce_verifier(pkce_verifier)
         .request(oauth2::reqwest::http_client);
 
-    println!("Returned the following response:\n{:?}\n", token_response);
+    // println!("Returned the following response:\n{:?}\n", token_response);
 
     if let Ok(token) = token_response {
         let token_string = token.access_token().secret();
 
-        println!("Token: {}", token_string);
+        // println!("Token: {}", token_string);
 
         let mut headers = HeaderMap::new();
         headers.append(
@@ -64,9 +65,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             method: Method::GET,
         })
         .unwrap();
-
-        println!("Body: {:?}", std::str::from_utf8(&response.body).unwrap());
+        
+        let response = serde_json::from_slice::<ApiTokenResponse>(&response.body).unwrap();
+        println!("API Token: {}", response.api_token);
     }
 
     Ok(())
+}
+
+#[derive(Deserialize)]
+struct ApiTokenResponse<'a> {
+    api_token: &'a str,
 }
