@@ -10,10 +10,8 @@ use crate::{
 };
 
 pub(crate) struct App {
-    pub tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<crate::AppMessage>,
     pub loaded_geohashes: usize,
-    pub total_geohashes: usize,
     pub results: Vec<QueryResult>,
     pub image_store: sync::Arc<sync::RwLock<crate::image_store::ImageStore>>,
 }
