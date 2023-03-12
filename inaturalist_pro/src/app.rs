@@ -1,12 +1,11 @@
-use actix::{Arbiter, SystemService, Actor};
+use actix::SystemService;
 use egui::Color32;
 use inaturalist::models::Observation;
 use std::sync;
 
 use crate::{
     image_store_actor::{ImageStoreActor, LoadImageMessage},
-    taxon_tree::TaxonTreeNode,
-    taxon_tree_builder_actor::{TaxonTreeBuilderActor, BuildTaxonTreeMessage},
+    taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor},
 };
 
 pub(crate) struct App {

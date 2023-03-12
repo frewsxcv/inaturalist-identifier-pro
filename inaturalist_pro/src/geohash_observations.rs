@@ -45,8 +45,13 @@ impl GeohashObservations {
                     Ok(rect) => rect,
                     Err(e) => return Err(FetchFromApiError::INaturalistApi(e)),
                 };
-                match inaturalist_fetch::fetch(rect.0, |o| on_observation(o), soft_limit, request.clone())
-                    .await
+                match inaturalist_fetch::fetch(
+                    rect.0,
+                    |o| on_observation(o),
+                    soft_limit,
+                    request.clone(),
+                )
+                .await
                 {
                     Ok(_) => Ok(()),
                     Err(e) => Err(FetchFromApiError::INaturalistApi(e)),

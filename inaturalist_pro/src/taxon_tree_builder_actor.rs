@@ -1,9 +1,6 @@
-use crate::geohash_ext::GeohashGrid;
-use crate::observation_processor_actor::{ObservationProcessorActor, ProcessObservationMessage};
 use crate::taxon_tree::TaxonTreeNode;
-use crate::{geohash_observations::GeohashObservations, operations::Operation};
+
 use actix::prelude::*;
-use tokio::sync::mpsc::UnboundedSender;
 
 pub struct TaxonTreeBuilderActor {
     pub tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
@@ -58,7 +55,7 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
                     let taxon_tree_node = foo
                         .0
                         .entry(*ancestor_id)
-                        .and_modify(|n| { n.score += score })
+                        .and_modify(|n| n.score += score)
                         .or_insert_with(|| TaxonTreeNode {
                             taxon_id: *ancestor_id,
                             children: Default::default(),

@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             method: Method::GET,
         })
         .unwrap();
-        
+
         let response = serde_json::from_slice::<ApiTokenResponse>(&response.body).unwrap();
         println!("API Token: {}", response.api_token);
     }
