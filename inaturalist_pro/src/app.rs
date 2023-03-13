@@ -13,6 +13,7 @@ pub(crate) struct App {
     pub loaded_geohashes: usize,
     pub results: Vec<QueryResult>,
     pub image_store: sync::Arc<sync::RwLock<crate::image_store::ImageStore>>,
+    pub taxa_store: crate::taxa_store::TaxaStore,
 }
 
 pub struct QueryResult {
@@ -32,6 +33,24 @@ impl App {
             scores: scores.clone(),
             taxon_tree: Default::default(),
         });
+
+        self.taxa_store.0.insert(
+            observation.taxon.as_ref().unwrap().id.unwrap(),
+            crate::taxa_store::Taxon::from(&**observation.taxon.as_ref().unwrap()),
+        );
+
+        for score in &scores {
+            tracing::error!(
+                "Adding: {} {:?}",
+                score.taxon.id.unwrap(),
+                crate::taxa_store::Taxon::from(&score.taxon),
+            );
+            self.taxa_store.0.insert(
+                score.taxon.id.unwrap(),
+                crate::taxa_store::Taxon::from(&score.taxon),
+            );
+        }
+
         // let mut taxa_ids = observation
         //     .taxon
         //     .as_ref()
@@ -113,13 +132,13 @@ impl eframe::App for App {
             let rect = ui.max_rect();
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading("Results");
-                for foo in &self.results {
+                for query_result in &self.results {
                     ui.horizontal(|ui| {
                         if let Some(image) = self
                             .image_store
                             .read()
                             .unwrap()
-                            .load(foo.observation.id.unwrap())
+                            .load(query_result.observation.id.unwrap())
                         {
                             ui.add_sized(image.size_vec2(), |ui: &mut egui::Ui| {
                                 if ui.max_rect().intersects(rect) {
@@ -130,22 +149,16 @@ impl eframe::App for App {
                             });
 
                             ui.vertical(|ui| {
-                                ui.hyperlink(foo.observation.uri.as_ref().unwrap());
-                                for score in &foo.scores {
-                                    ui.label(format!(
-                                        "Guess: {}",
-                                        score.taxon.name.as_ref().unwrap()
-                                    ));
-                                    ui.label(format!("Score: {}", score.combined_score));
-                                }
+                                ui.hyperlink(query_result.observation.uri.as_ref().unwrap());
                                 ui.heading("Taxon tree");
-                                if foo.taxon_tree.0.is_empty() {
+                                if query_result.taxon_tree.0.is_empty() {
                                     ui.spinner();
                                 } else {
-                                    for (_, v) in foo.taxon_tree.0.iter() {
+                                    for (_, v) in query_result.taxon_tree.0.iter() {
                                         ui.add(TaxonTreeWidget {
-                                            observation: foo.observation.clone(),
-                                            root_node: v.clone(),
+                                            observation: &query_result.observation,
+                                            root_node: v,
+                                            taxa_store: &self.taxa_store,
                                         });
                                     }
                                 }
@@ -161,12 +174,13 @@ impl eframe::App for App {
     }
 }
 
-struct TaxonTreeWidget {
-    observation: Observation,
-    root_node: crate::taxon_tree::TaxonTreeNode,
+struct TaxonTreeWidget<'a> {
+    observation: &'a Observation,
+    root_node: &'a crate::taxon_tree::TaxonTreeNode,
+    taxa_store: &'a crate::taxa_store::TaxaStore,
 }
 
-impl egui::Widget for TaxonTreeWidget {
+impl<'a> egui::Widget for TaxonTreeWidget<'a> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         let collapsing_header_id = format!(
             "{}-{}",
@@ -174,7 +188,17 @@ impl egui::Widget for TaxonTreeWidget {
             self.root_node.taxon_id,
         );
 
-        egui::CollapsingHeader::new(self.root_node.taxon_id.to_string())
+        let title = format!(
+            "{} ({})",
+            self.root_node.taxon_id,
+            self.taxa_store
+                .0
+                .get(&self.root_node.taxon_id)
+                .map(|t| t.name.clone())
+                .unwrap_or_else(|| "<n/a>".into()),
+        );
+
+        egui::CollapsingHeader::new(title)
             .id_source(collapsing_header_id)
             .default_open(true)
             .show(ui, |ui| {
@@ -188,13 +212,12 @@ impl egui::Widget for TaxonTreeWidget {
                 ui.colored_label(color, format!("Score: {}", self.root_node.score));
                 for child in self.root_node.children.0.values() {
                     ui.add(TaxonTreeWidget {
-                        observation: self.observation.clone(),
-                        root_node: child.clone(),
+                        observation: self.observation,
+                        root_node: child,
+                        taxa_store: self.taxa_store,
                     });
                 }
             })
             .header_response
-        // .bodyreturned
-        // .unwrap_or(Action::Keep)
     }
 }

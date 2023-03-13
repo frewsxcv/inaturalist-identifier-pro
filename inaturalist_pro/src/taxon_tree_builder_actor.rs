@@ -63,6 +63,14 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
                         });
                     foo = &mut taxon_tree_node.children;
                 }
+                foo.0
+                    .entry(taxon_guess.id.unwrap())
+                    .and_modify(|n| n.score += score)
+                    .or_insert_with(|| TaxonTreeNode {
+                        taxon_id: taxon_guess.id.unwrap(),
+                        children: Default::default(),
+                        score,
+                    });
             }
             tx_app_message
                 .send(crate::AppMessage::TaxonTree {

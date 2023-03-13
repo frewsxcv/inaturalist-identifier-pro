@@ -6,7 +6,7 @@ use image_store_actor::ImageStoreActor;
 use inaturalist::models::Observation;
 use observation_loader_actor::ObservationLoaderActor;
 use observation_processor_actor::ObservationProcessorActor;
-use std::{error, sync};
+use std::{collections, error, sync};
 use taxon_tree_builder_actor::TaxonTreeBuilderActor;
 
 mod app;
@@ -40,7 +40,7 @@ pub enum AppMessage {
 }
 
 lazy_static::lazy_static! {
-    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(100);
+    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(1);
 }
 
 type CurOperation = operations::TopImageScore;
@@ -93,6 +93,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                 loaded_geohashes: 0,
                 results: vec![],
                 image_store,
+                taxa_store: crate::taxa_store::TaxaStore(collections::HashMap::new()),
             })
         }),
     )?;
