@@ -44,12 +44,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_pkce_verifier(pkce_verifier)
         .request(oauth2::reqwest::http_client);
 
-    // println!("Returned the following response:\n{:?}\n", token_response);
-
     if let Ok(token) = token_response {
         let token_string = token.access_token().secret();
-
-        // println!("Token: {}", token_string);
 
         let mut headers = HeaderMap::new();
         headers.append(

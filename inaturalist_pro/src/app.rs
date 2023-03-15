@@ -40,11 +40,6 @@ impl App {
         );
 
         for score in &scores {
-            tracing::error!(
-                "Adding: {} {:?}",
-                score.taxon.id.unwrap(),
-                crate::taxa_store::Taxon::from(&score.taxon),
-            );
             self.taxa_store.0.insert(
                 score.taxon.id.unwrap(),
                 crate::taxa_store::Taxon::from(&score.taxon),
