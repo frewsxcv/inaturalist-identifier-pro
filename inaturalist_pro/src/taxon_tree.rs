@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
 #[derive(Debug, Default, Clone)]
-pub struct TaxonTree(pub HashMap<i32, TaxonTreeNode>);
+pub struct TaxonTree(pub Vec<TaxonTreeNode>);
 
 #[derive(Debug, Default, Clone)]
 pub struct TaxonTreeNode {

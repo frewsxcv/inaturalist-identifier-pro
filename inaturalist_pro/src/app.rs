@@ -149,10 +149,10 @@ impl eframe::App for App {
                                 if query_result.taxon_tree.0.is_empty() {
                                     ui.spinner();
                                 } else {
-                                    for (_, v) in query_result.taxon_tree.0.iter() {
+                                    for node in query_result.taxon_tree.0.iter() {
                                         ui.add(TaxonTreeWidget {
                                             observation: &query_result.observation,
-                                            root_node: v,
+                                            root_node: node,
                                             taxa_store: &self.taxa_store,
                                         });
                                     }
@@ -205,10 +205,10 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
                     _ => Color32::GRAY,
                 };
                 ui.colored_label(color, format!("Score: {}", self.root_node.score));
-                for child in self.root_node.children.0.values() {
+                for node in self.root_node.children.0.iter() {
                     ui.add(TaxonTreeWidget {
                         observation: self.observation,
-                        root_node: child,
+                        root_node: node,
                         taxa_store: self.taxa_store,
                     });
                 }

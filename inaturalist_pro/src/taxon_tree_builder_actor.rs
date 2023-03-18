@@ -44,38 +44,40 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
                 .await
                 .unwrap()
                 .results;
-            let mut hash_map = <crate::taxon_tree::TaxonTree as Default>::default();
+            let mut taxon_tree = <crate::taxon_tree::TaxonTree as Default>::default();
             for (taxon_guess, score) in taxa.iter().zip(msg.scores.iter().map(|s| s.combined_score))
             {
-                let mut foo = &mut hash_map;
-                for ancestor_id in taxon_guess.ancestor_ids.as_ref().unwrap() {
-                    // let inner_result = inaturalist_fetch::fetch_taxa(vec![*ancestor_id])
-                    // .await
-                    // .unwrap();
-                    let taxon_tree_node = foo
+                let mut curr_taxon_tree = &mut taxon_tree;
+                for ancestor_taxon_id in taxon_guess
+                    .ancestor_ids
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .chain(std::iter::once(&taxon_guess.id.unwrap()))
+                {
+                    if let Some(index) = curr_taxon_tree
                         .0
-                        .entry(*ancestor_id)
-                        .and_modify(|n| n.score += score)
-                        .or_insert_with(|| TaxonTreeNode {
-                            taxon_id: *ancestor_id,
-                            children: Default::default(),
-                            score,
-                        });
-                    foo = &mut taxon_tree_node.children;
-                }
-                foo.0
-                    .entry(taxon_guess.id.unwrap())
-                    .and_modify(|n| n.score += score)
-                    .or_insert_with(|| TaxonTreeNode {
-                        taxon_id: taxon_guess.id.unwrap(),
+                        .iter()
+                        .position(|n| n.taxon_id == *ancestor_taxon_id)
+                    {
+                        curr_taxon_tree.0[index].score += score;
+                        curr_taxon_tree = &mut curr_taxon_tree.0[index].children;
+                        continue;
+                    }
+                    let new = TaxonTreeNode {
+                        taxon_id: *ancestor_taxon_id,
                         children: Default::default(),
                         score,
-                    });
+                    };
+                    curr_taxon_tree.0.push(new);
+                    curr_taxon_tree.0.sort_by(|n, m| n.score.partial_cmp(&m.score).unwrap().reverse());
+                    curr_taxon_tree = &mut curr_taxon_tree.0.last_mut().unwrap().children;
+                }
             }
             tx_app_message
                 .send(crate::AppMessage::TaxonTree {
                     observation_id: msg.observation_id,
-                    taxon_tree: hash_map,
+                    taxon_tree,
                 })
                 .unwrap();
         };
