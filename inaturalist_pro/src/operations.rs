@@ -1,4 +1,3 @@
-use futures::FutureExt;
 use inaturalist::models::Observation;
 use std::{collections, error};
 

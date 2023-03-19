@@ -197,12 +197,16 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
             .id_source(collapsing_header_id)
             .default_open(true)
             .show(ui, |ui| {
-                let color = match self.root_node.score {
-                    75.0.. => Color32::BLUE,
-                    50.0..=75.0 => Color32::GREEN,
-                    25.0..=50.0 => Color32::YELLOW,
-                    0.0..=25.0 => Color32::RED,
-                    _ => Color32::GRAY,
+                let color = if self.root_node.score > 75. {
+                    Color32::BLUE
+                } else if self.root_node.score > 50. {
+                    Color32::GREEN
+                } else if self.root_node.score > 25. {
+                    Color32::YELLOW
+                } else if self.root_node.score > 0. {
+                    Color32::RED
+                } else {
+                    Color32::GRAY
                 };
                 ui.colored_label(color, format!("Score: {}", self.root_node.score));
                 for node in self.root_node.children.0.iter() {
