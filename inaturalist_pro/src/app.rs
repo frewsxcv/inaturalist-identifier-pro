@@ -5,6 +5,7 @@ use std::sync;
 
 use crate::{
     image_store_actor::{ImageStoreActor, LoadImageMessage},
+    taxa_store::{TaxaValue, TaxaStore},
     taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor},
 };
 
@@ -13,7 +14,7 @@ pub(crate) struct App {
     pub loaded_geohashes: usize,
     pub results: Vec<QueryResult>,
     pub image_store: sync::Arc<sync::RwLock<crate::image_store::ImageStore>>,
-    pub taxa_store: crate::taxa_store::TaxaStore,
+    pub taxa_store: TaxaStore,
 }
 
 pub struct QueryResult {
@@ -34,35 +35,6 @@ impl App {
             taxon_tree: Default::default(),
         });
 
-        self.taxa_store.0.insert(
-            observation.taxon.as_ref().unwrap().id.unwrap(),
-            crate::taxa_store::Taxon::from(&**observation.taxon.as_ref().unwrap()),
-        );
-
-        for score in &scores {
-            self.taxa_store.0.insert(
-                score.taxon.id.unwrap(),
-                crate::taxa_store::Taxon::from(&score.taxon),
-            );
-        }
-
-        // let mut taxa_ids = observation
-        //     .taxon
-        //     .as_ref()
-        //     .unwrap()
-        //     .ancestor_ids
-        //     .as_ref()
-        //     .unwrap()
-        //     .to_owned();
-        // taxa_ids.push(observation.taxon.as_ref().unwrap().id.unwrap());
-
-        TaxonTreeBuilderActor::from_registry()
-            .try_send(BuildTaxonTreeMessage {
-                observation_id: observation.id.unwrap(),
-                scores,
-            })
-            .unwrap();
-
         self.results.sort_unstable_by(|a, b| {
             a.scores[0]
                 .combined_score
@@ -71,7 +43,21 @@ impl App {
                 .reverse()
         });
 
+        self.build_taxon_tree_in_background_thread(&observation, scores);
         self.load_image_in_background_thread(observation);
+    }
+
+    fn build_taxon_tree_in_background_thread(
+        &self,
+        observation: &Observation,
+        scores: Vec<inaturalist_fetch::ComputerVisionObservationScore>,
+    ) {
+        TaxonTreeBuilderActor::from_registry()
+            .try_send(BuildTaxonTreeMessage {
+                observation_id: observation.id.unwrap(),
+                scores,
+            })
+            .unwrap();
     }
 
     fn load_image_in_background_thread(&self, observation: Box<Observation>) {
@@ -87,6 +73,9 @@ impl eframe::App for App {
             match app_message {
                 crate::AppMessage::Progress => {
                     self.loaded_geohashes += 1;
+                }
+                crate::AppMessage::TaxonLoaded(taxon) => {
+                    self.taxa_store.0.insert(taxon.id.unwrap(), (&*taxon).into());
                 }
                 crate::AppMessage::Result((observation, scores)) => {
                     self.handle_new_result(observation, scores)
@@ -172,7 +161,7 @@ impl eframe::App for App {
 struct TaxonTreeWidget<'a> {
     observation: &'a Observation,
     root_node: &'a crate::taxon_tree::TaxonTreeNode,
-    taxa_store: &'a crate::taxa_store::TaxaStore,
+    taxa_store: &'a TaxaStore,
 }
 
 impl<'a> egui::Widget for TaxonTreeWidget<'a> {
@@ -183,15 +172,13 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
             self.root_node.taxon_id,
         );
 
-        let title = format!(
-            "{} ({})",
-            self.root_node.taxon_id,
-            self.taxa_store
-                .0
-                .get(&self.root_node.taxon_id)
-                .map(|t| t.name.clone())
-                .unwrap_or_else(|| "<n/a>".into()),
-        );
+        let title = match self.taxa_store.0.get(&self.root_node.taxon_id) {
+            Some(TaxaValue::Loaded(taxon)) => {
+                format!("{} ({})", self.root_node.taxon_id, taxon.name,)
+            }
+            Some(TaxaValue::Loading) => "Loading...".to_string(),
+            None => "<Unknown>".to_string(),
+        };
 
         egui::CollapsingHeader::new(title)
             .id_source(collapsing_header_id)

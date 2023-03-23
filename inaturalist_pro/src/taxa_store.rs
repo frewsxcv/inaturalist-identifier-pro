@@ -1,10 +1,23 @@
 use std::collections;
 
 use inaturalist::models::{ObservationTaxon, ShowTaxon};
+use lazy_static::lazy_static;
 
 pub type TaxaId = i32;
 
-pub struct TaxaStore(pub collections::HashMap<TaxaId, Taxon>);
+#[derive(Default)]
+pub struct TaxaStore(pub collections::HashMap<TaxaId, TaxaValue>);
+
+pub enum TaxaValue {
+    Loading,
+    Loaded(Taxon),
+}
+
+impl From<&ShowTaxon> for TaxaValue {
+    fn from(value: &ShowTaxon) -> Self {
+        TaxaValue::Loaded(value.into())
+    }
+}
 
 #[derive(Debug)]
 pub struct Taxon {

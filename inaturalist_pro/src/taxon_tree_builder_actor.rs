@@ -17,7 +17,7 @@ impl Message for BuildTaxonTreeMessage {
 
 impl Default for TaxonTreeBuilderActor {
     fn default() -> Self {
-        todo!()
+        unimplemented!()
     }
 }
 
@@ -47,6 +47,12 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
             let mut taxon_tree = <crate::taxon_tree::TaxonTree as Default>::default();
             for (taxon_guess, score) in taxa.iter().zip(msg.scores.iter().map(|s| s.combined_score))
             {
+                tx_app_message
+                    .send(crate::AppMessage::TaxonLoaded(Box::new(
+                        taxon_guess.clone(),
+                    )))
+                    .unwrap();
+
                 let mut curr_taxon_tree = &mut taxon_tree;
                 for ancestor_taxon_id in taxon_guess
                     .ancestor_ids
@@ -70,7 +76,9 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
                         score,
                     };
                     curr_taxon_tree.0.push(new);
-                    curr_taxon_tree.0.sort_by(|n, m| n.score.partial_cmp(&m.score).unwrap().reverse());
+                    curr_taxon_tree
+                        .0
+                        .sort_by(|n, m| n.score.partial_cmp(&m.score).unwrap().reverse());
                     curr_taxon_tree = &mut curr_taxon_tree.0.last_mut().unwrap().children;
                 }
             }

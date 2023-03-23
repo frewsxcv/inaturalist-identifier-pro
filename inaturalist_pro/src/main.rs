@@ -1,12 +1,11 @@
-#![feature(async_closure)]
-
 use actix::{prelude::*, SystemRegistry};
 use geohash_ext::GeohashGrid;
 use image_store_actor::ImageStoreActor;
-use inaturalist::models::Observation;
+use inaturalist::models::{Observation, ShowTaxon};
 use observation_loader_actor::ObservationLoaderActor;
 use observation_processor_actor::ObservationProcessorActor;
 use std::{collections, error, sync};
+use taxa_loader_actor::TaxaLoaderActor;
 use taxon_tree_builder_actor::TaxonTreeBuilderActor;
 
 mod app;
@@ -18,6 +17,7 @@ mod observation_loader_actor;
 mod observation_processor_actor;
 mod operations;
 mod places;
+mod taxa_loader_actor;
 mod taxa_store;
 mod taxon_tree;
 mod taxon_tree_builder_actor;
@@ -27,6 +27,7 @@ type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 #[derive(Debug)]
 pub enum AppMessage {
     Progress,
+    TaxonLoaded(Box<ShowTaxon>),
     Result(
         (
             Box<Observation>,
@@ -77,10 +78,18 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     SystemRegistry::set(addr);
 
     let addr = ObservationProcessorActor::start_in_arbiter(&Arbiter::new().handle(), {
-        |_ctx| observation_processor_actor::ObservationProcessorActor {
-            tx_app_message,
-            operation,
+        let tx_app_message = tx_app_message.clone();
+        {
+            |_ctx| observation_processor_actor::ObservationProcessorActor {
+                tx_app_message,
+                operation,
+            }
         }
+    });
+    SystemRegistry::set(addr);
+
+    let addr = TaxaLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
+        |_ctx| TaxaLoaderActor { tx_app_message }
     });
     SystemRegistry::set(addr);
 
@@ -93,7 +102,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                 loaded_geohashes: 0,
                 results: vec![],
                 image_store,
-                taxa_store: crate::taxa_store::TaxaStore(collections::HashMap::new()),
+                taxa_store: Default::default(),
             })
         }),
     )?;

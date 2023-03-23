@@ -53,6 +53,8 @@ impl Operation for TopImageScore {
             quality_grade: Some(String::from("needs_id")),
             taxon_id: Some(vec![DIPTERA_ID.to_string()]),
             lrank: Some("suborder".to_string()),
+            order_by: Some("created_at".to_string()),
+            order: Some("asc".to_string()),
             ..Default::default()
         }
     }
