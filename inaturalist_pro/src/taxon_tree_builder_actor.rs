@@ -1,4 +1,7 @@
-use crate::taxon_tree::TaxonTreeNode;
+use crate::{
+    taxa_loader_actor::{LoadTaxaMessage, TaxaLoaderActor},
+    taxon_tree::TaxonTreeNode,
+};
 
 use actix::prelude::*;
 
@@ -51,6 +54,10 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
                     .send(crate::AppMessage::TaxonLoaded(Box::new(
                         taxon_guess.clone(),
                     )))
+                    .unwrap();
+                TaxaLoaderActor::from_registry()
+                    .send(LoadTaxaMessage(taxon_guess.ancestor_ids.clone().unwrap()))
+                    .await
                     .unwrap();
 
                 let mut curr_taxon_tree = &mut taxon_tree;

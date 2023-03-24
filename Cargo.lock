@@ -1788,9 +1788,9 @@ dependencies = [
 
 [[package]]
 name = "inaturalist"
-version = "0.4.1"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a90ad3a9264aab1dcf99011b76a6a5fe086b54ce9ea807ea01e91f24d5fb57dd"
+checksum = "c21866b3d6cb36382ed17aabd8473e1fef21ebd796f9ebcdf3368ea0d90cbccd"
 dependencies = [
  "reqwest",
  "serde",

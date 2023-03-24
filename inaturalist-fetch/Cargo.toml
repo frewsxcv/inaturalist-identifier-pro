@@ -10,7 +10,7 @@ futures = "0.3"
 geo = "0.23"
 geo-ext = { path = "../geo-ext" }
 governor = "0.5"
-inaturalist = "0.4"
+inaturalist = "0.5"
 lazy_static = "1"
 oauth2 = "4.3.0"
 ordered-float = { version = "3", features = ["serde"] }
