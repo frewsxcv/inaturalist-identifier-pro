@@ -1,5 +1,6 @@
 use futures::FutureExt;
 use geo_ext::Halve;
+use inaturalist::apis::configuration::ApiKey;
 use std::{num, pin::Pin, sync};
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
@@ -11,6 +12,12 @@ lazy_static::lazy_static! {
     static ref INATURALIST_REQUEST_CONFIG: inaturalist::apis::configuration::Configuration =
         inaturalist::apis::configuration::Configuration {
             base_path: String::from("https://api.inaturalist.org/v1"),
+            // basic_auth: Some((API_TOKEN.to_string(), None)),
+            // oauth_access_token: Some(ACCESS_TOKEN.to_string()),
+            api_key: Some(ApiKey {
+                prefix: None,
+                key: API_TOKEN.into(),
+            }),
             ..Default::default()
         };
 
@@ -22,7 +29,8 @@ lazy_static::lazy_static! {
         governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
 }
 
-const AUTHORIZATION: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2Nzk2MzQ5MzN9.bXXY-0xPkShfynXPirZiwr7ETNP3yi9_4nu_F2pzEIr8yBIGh1R7XpIpuA5ahqScGYRDVkgdMncRXq0gq9pgdQ";
+const ACCESS_TOKEN: &str = "jm8Lr28bxP01LRK9ScSpuyHRlNJD1fmRC7cRjfnRGHY";
+const API_TOKEN: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2Nzk4MDE0NjN9.Tb6wxauFqn0rey9JWp1s92N4J2EN93QN8JLK5c7X09US7Zkx0Ybc_7x8yBo0GcKDyHxHcsf9ibD3jwy9A-jzGg";
 
 #[derive(Copy, Clone)]
 pub struct SubdividedRect(pub crate::Rect);
@@ -306,11 +314,30 @@ pub async fn fetch_computer_vision_observation_scores(
     INATURALIST_RATE_LIMITER.until_ready().await;
     reqwest::Client::new()
         .get(url)
-        .header("Authorization", AUTHORIZATION)
+        .header("Authorization", API_TOKEN)
         .send()
         .await
         .unwrap()
         .json()
         .await
         .unwrap()
+}
+
+pub async fn identify(observation_id: i32, taxon_id: i32) -> Result<(), impl std::error::Error> {
+    inaturalist::apis::identifications_api::identifications_post(
+        &INATURALIST_REQUEST_CONFIG,
+        inaturalist::apis::identifications_api::IdentificationsPostParams {
+            body: Some(inaturalist::models::PostIdentification {
+                identification: Some(Box::new(
+                    inaturalist::models::PostIdentificationIdentification {
+                        observation_id: Some(observation_id),
+                        taxon_id: Some(taxon_id),
+                        current: None,
+                        body: None,
+                    },
+                )),
+            }),
+        },
+    )
+    .await
 }

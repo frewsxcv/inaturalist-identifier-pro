@@ -47,6 +47,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(token) = token_response {
         let token_string = token.access_token().secret();
 
+        println!("OAuth access token: {}", token_string);
+
         let mut headers = HeaderMap::new();
         headers.append(
             "Authorization",
@@ -63,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
 
         let response = serde_json::from_slice::<ApiTokenResponse>(&response.body).unwrap();
-        println!("API Token: {}", response.api_token);
+        println!("OAuth API token: {}", response.api_token);
     }
 
     Ok(())

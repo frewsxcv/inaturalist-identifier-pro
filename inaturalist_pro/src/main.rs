@@ -1,5 +1,6 @@
 use actix::{prelude::*, SystemRegistry};
 use geohash_ext::GeohashGrid;
+use identify_actor::IdentifyActor;
 use image_store_actor::ImageStoreActor;
 use inaturalist::models::{Observation, ShowTaxon};
 use observation_loader_actor::ObservationLoaderActor;
@@ -11,6 +12,7 @@ use taxon_tree_builder_actor::TaxonTreeBuilderActor;
 mod app;
 mod geohash_ext;
 mod geohash_observations;
+mod identify_actor;
 mod image_store;
 mod image_store_actor;
 mod observation_loader_actor;
@@ -41,7 +43,7 @@ pub enum AppMessage {
 }
 
 lazy_static::lazy_static! {
-    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(30);
+    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(3);
 }
 
 type CurOperation = operations::TopImageScore;
@@ -84,6 +86,14 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
                 tx_app_message,
                 operation,
             }
+        }
+    });
+    SystemRegistry::set(addr);
+
+    let addr = IdentifyActor::start_in_arbiter(&Arbiter::new().handle(), {
+        let tx_app_message = tx_app_message.clone();
+        {
+            |_ctx| IdentifyActor { tx_app_message }
         }
     });
     SystemRegistry::set(addr);

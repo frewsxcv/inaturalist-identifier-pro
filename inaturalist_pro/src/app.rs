@@ -6,7 +6,7 @@ use std::sync;
 use crate::{
     image_store_actor::{ImageStoreActor, LoadImageMessage},
     taxa_store::{TaxaStore, TaxaValue},
-    taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor},
+    taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor}, identify_actor::{IdentifyActor, IdentifyMessage},
 };
 
 pub(crate) struct App {
@@ -195,7 +195,14 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
         .show_header(ui, |ui| {
             match self.taxa_store.0.get(&self.root_node.taxon_id) {
                 Some(TaxaValue::Loaded(taxon)) => {
-                    if ui.button("✔").clicked() {}
+                    if ui.button("✔").clicked() {
+                        IdentifyActor::from_registry()
+                            .try_send(IdentifyMessage {
+                                observation_id: self.observation.id.unwrap(),
+                                taxon_id: taxon.id,
+                             })
+                            .unwrap();
+                    }
                     ui.colored_label(
                         color,
                         format!("{} ({})", taxon.name, self.root_node.score.round()),
