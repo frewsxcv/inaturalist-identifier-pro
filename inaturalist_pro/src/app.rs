@@ -116,9 +116,10 @@ impl eframe::App for App {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let rect = ui.max_rect();
+            let mut to_remove = vec![];
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading("Results");
-                for query_result in &self.results {
+                for (i, query_result) in self.results.iter().enumerate() {
                     ui.horizontal(|ui| {
                         if let Some(image) = self
                             .image_store
@@ -140,12 +141,17 @@ impl eframe::App for App {
                                 if query_result.taxon_tree.0.is_empty() {
                                     ui.spinner();
                                 } else {
+                                    let mut identified = false;
                                     for node in query_result.taxon_tree.0.iter() {
                                         ui.add(TaxonTreeWidget {
                                             observation: &query_result.observation,
                                             root_node: node,
                                             taxa_store: &self.taxa_store,
+                                            identified: &mut identified,
                                         });
+                                    }
+                                    if identified {
+                                        to_remove.push(i);
                                     }
                                 }
                             });
@@ -156,6 +162,9 @@ impl eframe::App for App {
                     ui.separator();
                 }
             });
+            for index in to_remove {
+                self.results.remove(index);
+            }
         });
     }
 }
@@ -164,6 +173,7 @@ struct TaxonTreeWidget<'a> {
     observation: &'a Observation,
     root_node: &'a crate::taxon_tree::TaxonTreeNode,
     taxa_store: &'a TaxaStore,
+    identified: &'a mut bool,
 }
 
 impl<'a> egui::Widget for TaxonTreeWidget<'a> {
@@ -202,6 +212,7 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
                                 taxon_id: taxon.id,
                              })
                             .unwrap();
+                        *self.identified = true;
                     }
                     ui.colored_label(
                         color,
@@ -223,6 +234,7 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
                     observation: self.observation,
                     root_node: node,
                     taxa_store: self.taxa_store,
+                    identified: self.identified,
                 });
             }
         });
