@@ -66,6 +66,7 @@ impl Handler<FetchTaxaMessage> for TaxaLoaderActor {
                         tx_app_message
                             .send(AppMessage::TaxonLoaded(Box::new(taxon)))
                             .unwrap();
+                        // TODO: send new message to self (blocking) that removes the entries from the hashsets
                     }
                 }
             })

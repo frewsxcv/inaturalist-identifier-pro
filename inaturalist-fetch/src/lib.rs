@@ -325,7 +325,8 @@ pub async fn fetch_computer_vision_observation_scores(
         Ok(j) => j,
         Err(_) => {
             tracing::error!(
-                "Could not fetch computer vision observation scores. Response: {:?}",
+                "Could not fetch computer vision observation scores (observation ID = {}). Response: {:?}",
+                observation.id.unwrap(),
                 response_text
             );
             panic!("Bailing...");
