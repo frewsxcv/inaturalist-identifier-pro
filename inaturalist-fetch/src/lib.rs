@@ -275,7 +275,7 @@ pub async fn fetch_taxa(
     inaturalist::models::TaxaShowResponse,
     inaturalist::apis::Error<inaturalist::apis::taxa_api::TaxaIdGetError>,
 > {
-    tracing::info!("Fetching taxa. IDs = {:?}", taxa_ids);
+    tracing::info!("Fetching taxa IDs = {:?}", taxa_ids);
     INATURALIST_RATE_LIMITER.until_ready().await;
     let taxa = inaturalist::apis::taxa_api::taxa_id_get(
         &INATURALIST_REQUEST_CONFIG,

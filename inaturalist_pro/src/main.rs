@@ -43,7 +43,7 @@ pub enum AppMessage {
 }
 
 lazy_static::lazy_static! {
-    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(3);
+    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(50);
 }
 
 type CurOperation = operations::TopImageScore;
@@ -99,7 +99,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     SystemRegistry::set(addr);
 
     let addr = TaxaLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
-        |_ctx| TaxaLoaderActor { tx_app_message }
+        |_ctx| TaxaLoaderActor { tx_app_message, seen: Default::default() }
     });
     SystemRegistry::set(addr);
 
