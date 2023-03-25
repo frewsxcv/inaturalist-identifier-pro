@@ -4,9 +4,10 @@ use inaturalist::models::Observation;
 use std::sync;
 
 use crate::{
+    identify_actor::{IdentifyActor, IdentifyMessage},
     image_store_actor::{ImageStoreActor, LoadImageMessage},
     taxa_store::{TaxaStore, TaxaValue},
-    taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor}, identify_actor::{IdentifyActor, IdentifyMessage},
+    taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor},
 };
 
 pub(crate) struct App {
@@ -75,6 +76,10 @@ impl eframe::App for App {
                     self.loaded_geohashes += 1;
                 }
                 crate::AppMessage::TaxonLoaded(taxon) => {
+                    tracing::info!(
+                        "Received TaxonLoaded event for taxon ID={}",
+                        taxon.id.unwrap()
+                    );
                     self.taxa_store
                         .0
                         .insert(taxon.id.unwrap(), (&*taxon).into());
@@ -203,6 +208,13 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
             true,
         )
         .show_header(ui, |ui| {
+            ui.hyperlink_to(
+                "🔗",
+                format!(
+                    "https://www.inaturalist.org/taxa/{}",
+                    self.root_node.taxon_id
+                ),
+            );
             match self.taxa_store.0.get(&self.root_node.taxon_id) {
                 Some(TaxaValue::Loaded(taxon)) => {
                     if ui.button("✔").clicked() {
@@ -210,7 +222,7 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
                             .try_send(IdentifyMessage {
                                 observation_id: self.observation.id.unwrap(),
                                 taxon_id: taxon.id,
-                             })
+                            })
                             .unwrap();
                         *self.identified = true;
                     }

@@ -6,7 +6,7 @@ use std::{num, pin::Pin, sync};
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
 const INATURALIST_RATE_LIMIT_AMOUNT: governor::Quota =
-    governor::Quota::per_minute(unsafe { num::NonZeroU32::new_unchecked(30) });
+    governor::Quota::per_second(unsafe { num::NonZeroU32::new_unchecked(1) });
 
 lazy_static::lazy_static! {
     static ref INATURALIST_REQUEST_CONFIG: inaturalist::apis::configuration::Configuration =
@@ -29,7 +29,7 @@ lazy_static::lazy_static! {
         governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
 }
 
-const API_TOKEN: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2Nzk4MDE0NjN9.Tb6wxauFqn0rey9JWp1s92N4J2EN93QN8JLK5c7X09US7Zkx0Ybc_7x8yBo0GcKDyHxHcsf9ibD3jwy9A-jzGg";
+const API_TOKEN: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2Nzk4Mzk2NTJ9.VYWQNUT1ii44wV6DS7k_bmn7bOOswMZmNGWyCfO2MZKJ2lbEyn2FYznxAKyCRrC4LnERBGAsi_ygB6v-RqszhQ";
 
 #[derive(Copy, Clone)]
 pub struct SubdividedRect(pub crate::Rect);
@@ -155,7 +155,7 @@ fn build_params(
         // identified: Some(true),
         // identifications: Some(String::from("most_agree")),
         // native: Some(true),
-        order: Some("desc".to_string()),
+        order: Some("asc".to_string()),
         order_by: Some("observed_on".to_string()),
         per_page: Some(per_page.to_string()),
         page: Some(page.to_string()),
@@ -279,9 +279,12 @@ pub async fn fetch_taxa(
     INATURALIST_RATE_LIMITER.until_ready().await;
     let taxa = inaturalist::apis::taxa_api::taxa_id_get(
         &INATURALIST_REQUEST_CONFIG,
-        inaturalist::apis::taxa_api::TaxaIdGetParams { id: taxa_ids },
+        inaturalist::apis::taxa_api::TaxaIdGetParams {
+            id: taxa_ids.clone(),
+        },
     )
     .await?;
+    tracing::info!("Fetched taxa IDs = {:?}", taxa_ids);
     Ok(taxa)
 }
 
@@ -311,15 +314,23 @@ pub async fn fetch_computer_vision_observation_scores(
     let url =
         format!("https://api.inaturalist.org/v1/computervision/score_observation/{observation_id}");
     INATURALIST_RATE_LIMITER.until_ready().await;
-    reqwest::Client::new()
+    let response = reqwest::Client::new()
         .get(url)
         .header("Authorization", API_TOKEN)
         .send()
         .await
-        .unwrap()
-        .json()
-        .await
-        .unwrap()
+        .unwrap();
+    let response_text = response.text().await.unwrap();
+    match serde_json::from_str(&response_text) {
+        Ok(j) => j,
+        Err(_) => {
+            tracing::error!(
+                "Could not fetch computer vision observation scores. Response: {:?}",
+                response_text
+            );
+            panic!("Bailing...");
+        }
+    }
 }
 
 pub async fn identify(observation_id: i32, taxon_id: i32) -> Result<(), impl std::error::Error> {

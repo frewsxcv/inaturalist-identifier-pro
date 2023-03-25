@@ -1,5 +1,5 @@
 use crate::{
-    taxa_loader_actor::{LoadTaxaMessage, TaxaLoaderActor},
+    taxa_loader_actor::{TaxaLoaderActor, LoadTaxonMessage},
     taxon_tree::TaxonTreeNode,
 };
 
@@ -55,10 +55,6 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
                         taxon_guess.clone(),
                     )))
                     .unwrap();
-                TaxaLoaderActor::from_registry()
-                    .send(LoadTaxaMessage(taxon_guess.ancestor_ids.clone().unwrap()))
-                    .await
-                    .unwrap();
 
                 let mut curr_taxon_tree = &mut taxon_tree;
                 for ancestor_taxon_id in taxon_guess
@@ -86,6 +82,9 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
                     curr_taxon_tree
                         .0
                         .sort_by(|n, m| n.score.partial_cmp(&m.score).unwrap().reverse());
+                    TaxaLoaderActor::from_registry()
+                        .try_send(LoadTaxonMessage(*ancestor_taxon_id))
+                        .unwrap();
                 }
             }
             tx_app_message
