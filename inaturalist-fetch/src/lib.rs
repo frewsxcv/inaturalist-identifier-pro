@@ -29,7 +29,6 @@ lazy_static::lazy_static! {
         governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
 }
 
-const ACCESS_TOKEN: &str = "jm8Lr28bxP01LRK9ScSpuyHRlNJD1fmRC7cRjfnRGHY";
 const API_TOKEN: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2Nzk4MDE0NjN9.Tb6wxauFqn0rey9JWp1s92N4J2EN93QN8JLK5c7X09US7Zkx0Ybc_7x8yBo0GcKDyHxHcsf9ibD3jwy9A-jzGg";
 
 #[derive(Copy, Clone)]
