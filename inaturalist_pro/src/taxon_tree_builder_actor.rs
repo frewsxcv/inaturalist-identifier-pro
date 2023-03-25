@@ -75,18 +75,17 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
                     {
                         curr_taxon_tree.0[index].score += score;
                         curr_taxon_tree = &mut curr_taxon_tree.0[index].children;
-                        continue;
+                    } else {
+                        curr_taxon_tree.0.push(TaxonTreeNode {
+                            taxon_id: *ancestor_taxon_id,
+                            children: Default::default(),
+                            score,
+                        });
+                        curr_taxon_tree = &mut curr_taxon_tree.0.last_mut().unwrap().children;
                     }
-                    let new = TaxonTreeNode {
-                        taxon_id: *ancestor_taxon_id,
-                        children: Default::default(),
-                        score,
-                    };
-                    curr_taxon_tree.0.push(new);
                     curr_taxon_tree
                         .0
                         .sort_by(|n, m| n.score.partial_cmp(&m.score).unwrap().reverse());
-                    curr_taxon_tree = &mut curr_taxon_tree.0.last_mut().unwrap().children;
                 }
             }
             tx_app_message
