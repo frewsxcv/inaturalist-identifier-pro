@@ -614,6 +614,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
+name = "colorous"
+version = "1.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39efe0bc2ad58cbee0bea3109d15b5390fef75e810f28608a6e48ff3e3fbe24b"
+
+[[package]]
 name = "combine"
 version = "4.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1822,6 +1828,7 @@ name = "inaturalist-fetch"
 version = "0.1.0"
 dependencies = [
  "async-recursion",
+ "colorous",
  "futures",
  "geo",
  "geo-ext",

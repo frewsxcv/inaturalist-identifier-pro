@@ -1,5 +1,8 @@
 use actix::SystemService;
-use egui::Color32;
+use egui::{
+    text::{LayoutJob, TextFormat},
+    Color32, FontFamily, FontId,
+};
 use inaturalist::models::Observation;
 use std::sync;
 
@@ -130,7 +133,8 @@ impl eframe::App for App {
                         {
                             const MAX_WIDTH: f32 = 500.;
                             let scale = MAX_WIDTH / (image.width() as f32);
-                            let image_size = egui::Vec2::new(MAX_WIDTH, image.height() as f32 * scale);
+                            let image_size =
+                                egui::Vec2::new(MAX_WIDTH, image.height() as f32 * scale);
                             ui.add_sized(image_size, |ui: &mut egui::Ui| {
                                 if ui.max_rect().intersects(rect) {
                                     image.show_size(ui, image_size)
@@ -225,10 +229,24 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
                             .unwrap();
                         *self.identified = true;
                     }
-                    ui.colored_label(
-                        color,
-                        format!("{} ({})", taxon.name, self.root_node.score.round()),
+                    let mut job = LayoutJob::default();
+                    job.append(
+                        &taxon.name,
+                        0.0,
+                        TextFormat {
+                            color: ui.visuals().text_color(),
+                            ..Default::default()
+                        },
                     );
+                    job.append(
+                        &format!(" ({})", self.root_node.score.round()),
+                        0.0,
+                        TextFormat {
+                            color,
+                            ..Default::default()
+                        },
+                    );
+                    ui.label(job);
                 }
                 Some(TaxaValue::Loading) => {
                     unimplemented!()
