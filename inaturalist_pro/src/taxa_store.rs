@@ -1,7 +1,7 @@
 use std::collections;
 
 use inaturalist::models::{ObservationTaxon, ShowTaxon};
-use lazy_static::lazy_static;
+
 
 pub type TaxaId = i32;
 

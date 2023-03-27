@@ -5,7 +5,7 @@ use image_store_actor::ImageStoreActor;
 use inaturalist::models::{Observation, ShowTaxon};
 use observation_loader_actor::ObservationLoaderActor;
 use observation_processor_actor::ObservationProcessorActor;
-use std::{collections, error, sync};
+use std::{error, sync};
 use taxa_loader_actor::TaxaLoaderActor;
 use taxon_tree_builder_actor::TaxonTreeBuilderActor;
 
