@@ -37,7 +37,7 @@ impl Handler<LoadImageMessage> for ImageStoreActor {
                 .as_ref()
                 .and_then(|p| p.get(0).map(|p| p.url.to_owned()))
             {
-                let image_url = photo_url.as_ref().unwrap().replace("square", "medium");
+                let image_url = photo_url.as_ref().unwrap().replace("square", "large");
                 fetch_image(image_url, image_store, *msg.observation)
                     .await
                     .unwrap();

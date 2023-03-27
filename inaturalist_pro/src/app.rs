@@ -132,13 +132,14 @@ impl eframe::App for App {
                             .unwrap()
                             .load(query_result.observation.id.unwrap())
                         {
-                            ui.add_sized(image.size_vec2(), |ui: &mut egui::Ui| {
-                                if ui.max_rect().intersects(rect) {
-                                    image.show(ui)
-                                } else {
-                                    ui.spinner()
-                                }
-                            });
+                            const MAX_WIDTH: f32 = 300.;
+                            let scale = MAX_WIDTH / (image.width() as f32);
+                            let image_size = egui::Vec2::new(MAX_WIDTH, image.height() as f32 * scale);
+                            if ui.max_rect().intersects(rect) {
+                                image.show_size(ui, image_size);
+                            } else {
+                                ui.spinner();
+                            }
 
                             ui.vertical(|ui| {
                                 ui.hyperlink(query_result.observation.uri.as_ref().unwrap());
