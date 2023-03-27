@@ -76,10 +76,6 @@ impl eframe::App for App {
                     self.loaded_geohashes += 1;
                 }
                 crate::AppMessage::TaxonLoaded(taxon) => {
-                    tracing::info!(
-                        "Received TaxonLoaded event for taxon ID={}",
-                        taxon.id.unwrap()
-                    );
                     self.taxa_store
                         .0
                         .insert(taxon.id.unwrap(), (&*taxon).into());
@@ -132,14 +128,16 @@ impl eframe::App for App {
                             .unwrap()
                             .load(query_result.observation.id.unwrap())
                         {
-                            const MAX_WIDTH: f32 = 300.;
+                            const MAX_WIDTH: f32 = 500.;
                             let scale = MAX_WIDTH / (image.width() as f32);
                             let image_size = egui::Vec2::new(MAX_WIDTH, image.height() as f32 * scale);
-                            if ui.max_rect().intersects(rect) {
-                                image.show_size(ui, image_size);
-                            } else {
-                                ui.spinner();
-                            }
+                            ui.add_sized(image_size, |ui: &mut egui::Ui| {
+                                if ui.max_rect().intersects(rect) {
+                                    image.show_size(ui, image_size)
+                                } else {
+                                    ui.spinner()
+                                }
+                            });
 
                             ui.vertical(|ui| {
                                 ui.hyperlink(query_result.observation.uri.as_ref().unwrap());

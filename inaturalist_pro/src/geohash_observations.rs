@@ -27,7 +27,6 @@ impl GeohashObservations {
         request: inaturalist::apis::observations_api::ObservationsGetParams,
     ) -> Result<(), FetchFromApiError> {
         if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
-            tracing::info!("Hit soft limit.");
             return Ok(());
         }
 
@@ -35,7 +34,6 @@ impl GeohashObservations {
             .await
             .filter(|_| {
                 if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
-                    tracing::info!("Hit soft limit.");
                     return futures::future::ready(false);
                 }
                 futures::future::ready(true)

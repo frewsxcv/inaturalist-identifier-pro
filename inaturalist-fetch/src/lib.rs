@@ -97,7 +97,6 @@ pub async fn fetch(
 
     for page in 1.. {
         if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
-            tracing::info!("Hit soft limit.");
             break;
         }
 
