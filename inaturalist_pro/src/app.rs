@@ -8,7 +8,7 @@ const MAX_SCORE: f64 = 100.;
 use crate::{
     identify_actor::{IdentifyActor, IdentifyMessage},
     image_store_actor::{ImageStoreActor, LoadImageMessage},
-    taxa_store::{TaxaStore, TaxaValue},
+    taxa_store::TaxaStore,
     taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor},
 };
 
@@ -205,7 +205,7 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
                 ),
             );
             match self.taxa_store.0.get(&self.root_node.taxon_id) {
-                Some(TaxaValue::Loaded(taxon)) => {
+                Some(taxon) => {
                     // Score square
                     let score_color = colorous::COOL
                         .eval_continuous(self.root_node.score.round() as f64 / MAX_SCORE);
@@ -236,9 +236,6 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
                     }
 
                     ui.label(&taxon.name);
-                }
-                Some(TaxaValue::Loading) => {
-                    unimplemented!()
                 }
                 None => {
                     ui.spinner();

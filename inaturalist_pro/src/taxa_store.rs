@@ -5,18 +5,7 @@ use inaturalist::models::{ObservationTaxon, ShowTaxon};
 pub type TaxaId = i32;
 
 #[derive(Default)]
-pub struct TaxaStore(pub collections::HashMap<TaxaId, TaxaValue>);
-
-pub enum TaxaValue {
-    Loading,
-    Loaded(Taxon),
-}
-
-impl From<&ShowTaxon> for TaxaValue {
-    fn from(value: &ShowTaxon) -> Self {
-        TaxaValue::Loaded(value.into())
-    }
-}
+pub struct TaxaStore(pub collections::HashMap<TaxaId, Taxon>);
 
 #[derive(Debug)]
 pub struct Taxon {
