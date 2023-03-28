@@ -1,8 +1,5 @@
 use actix::SystemService;
-use egui::{
-    text::{LayoutJob, TextFormat},
-    Color32, FontFamily, FontId, Sense, Vec2,
-};
+use egui::{Sense, Vec2};
 use inaturalist::models::Observation;
 use std::sync;
 
@@ -212,7 +209,7 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
                     // Score square
                     let score_color = colorous::COOL
                         .eval_continuous(self.root_node.score.round() as f64 / MAX_SCORE);
-                    let square_width = ui.max_rect().height();
+                    let _square_width = ui.max_rect().height();
                     let rect_size = Vec2::new(ui.available_height(), ui.available_height());
                     let (rect, response) = ui.allocate_exact_size(rect_size, Sense::hover());
                     response.on_hover_text(format!(

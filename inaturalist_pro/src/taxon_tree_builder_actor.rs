@@ -1,5 +1,5 @@
 use crate::{
-    taxa_loader_actor::{TaxaLoaderActor, LoadTaxonMessage},
+    taxa_loader_actor::{LoadTaxonMessage, TaxaLoaderActor},
     taxon_tree::TaxonTreeNode,
 };
 

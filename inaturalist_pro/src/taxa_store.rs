@@ -2,7 +2,6 @@ use std::collections;
 
 use inaturalist::models::{ObservationTaxon, ShowTaxon};
 
-
 pub type TaxaId = i32;
 
 #[derive(Default)]
