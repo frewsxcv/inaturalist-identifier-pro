@@ -1,5 +1,5 @@
 use inaturalist::models::Observation;
-use std::{collections, error};
+use std::error;
 
 use crate::AppMessage;
 
@@ -144,6 +144,7 @@ impl Operation for PrintAngiospermae {
 //     }
 // }
 
+/*
 fn observations_species_count(observations: &[Observation]) -> usize {
     // TODO this should actually be a ratio?
     observations
@@ -153,6 +154,7 @@ fn observations_species_count(observations: &[Observation]) -> usize {
         .collect::<collections::HashSet<_>>()
         .len()
 }
+*/
 
 // #[derive(Default)]
 // pub struct TopObservationsPerTile {
@@ -174,8 +176,9 @@ fn observations_species_count(observations: &[Observation]) -> usize {
 //     }
 // }
 
-type GeohashTopObservers = collections::HashMap<String, usize>;
+// type GeohashTopObservers = collections::HashMap<String, usize>;
 
+/*
 fn observations_top_observers(observations: &[Observation]) -> GeohashTopObservers {
     let mut map = collections::HashMap::new();
     for observation in observations.iter() {
@@ -193,3 +196,4 @@ fn observations_top_observers(observations: &[Observation]) -> GeohashTopObserve
     }
     map
 }
+*/

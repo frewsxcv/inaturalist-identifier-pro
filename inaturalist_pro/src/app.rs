@@ -197,13 +197,6 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
             true,
         )
         .show_header(ui, |ui| {
-            ui.hyperlink_to(
-                "🔗",
-                format!(
-                    "https://www.inaturalist.org/taxa/{}",
-                    self.root_node.taxon_id
-                ),
-            );
             match self.taxa_store.0.get(&self.root_node.taxon_id) {
                 Some(taxon) => {
                     // Score square
@@ -236,6 +229,14 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
                     }
 
                     ui.label(&taxon.name);
+
+                    ui.hyperlink_to(
+                        "🌎",
+                        format!(
+                            "https://www.inaturalist.org/taxa/{}",
+                            self.root_node.taxon_id
+                        ),
+                    );
                 }
                 None => {
                     ui.spinner();

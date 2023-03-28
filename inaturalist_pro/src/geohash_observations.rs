@@ -45,6 +45,7 @@ impl GeohashObservations {
                 };
                 match inaturalist_fetch::fetch(
                     rect.0,
+                    #[allow(clippy::redundant_closure)]
                     |o| on_observation(o),
                     soft_limit,
                     request.clone(),
