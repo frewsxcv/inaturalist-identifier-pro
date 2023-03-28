@@ -1802,6 +1802,7 @@ version = "0.1.0"
 dependencies = [
  "actix",
  "arrayvec",
+ "colorous",
  "eframe",
  "egui",
  "egui_extras",
@@ -1828,7 +1829,6 @@ name = "inaturalist-fetch"
 version = "0.1.0"
 dependencies = [
  "async-recursion",
- "colorous",
  "futures",
  "geo",
  "geo-ext",

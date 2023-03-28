@@ -1,10 +1,12 @@
 use actix::SystemService;
 use egui::{
     text::{LayoutJob, TextFormat},
-    Color32, FontFamily, FontId,
+    Color32, FontFamily, FontId, Sense, Vec2,
 };
 use inaturalist::models::Observation;
 use std::sync;
+
+const MAX_SCORE: f64 = 100.;
 
 use crate::{
     identify_actor::{IdentifyActor, IdentifyMessage},
@@ -192,19 +194,6 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
             self.root_node.taxon_id,
         );
 
-        let color = if self.root_node.score > 75. {
-            Color32::GREEN
-        } else if self.root_node.score > 50. {
-            Color32::YELLOW
-        } else if self.root_node.score > 25. {
-            // Orange
-            Color32::from_rgb(255, 165, 0)
-        } else if self.root_node.score > 0. {
-            Color32::RED
-        } else {
-            Color32::GRAY
-        };
-
         let (response, _, _) = egui::collapsing_header::CollapsingState::load_with_default_open(
             ui.ctx(),
             collapsing_header_id.into(),
@@ -220,6 +209,25 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
             );
             match self.taxa_store.0.get(&self.root_node.taxon_id) {
                 Some(TaxaValue::Loaded(taxon)) => {
+                    // Score square
+                    let score_color = colorous::COOL
+                        .eval_continuous(self.root_node.score.round() as f64 / MAX_SCORE);
+                    let square_width = ui.max_rect().height();
+                    let rect_size = Vec2::new(ui.available_height(), ui.available_height());
+                    let (rect, response) = ui.allocate_exact_size(rect_size, Sense::hover());
+                    response.on_hover_text(format!(
+                        "Score: {} / {}",
+                        self.root_node.score.round(),
+                        MAX_SCORE
+                    ));
+                    let shape = egui::Shape::rect_filled(
+                        rect,
+                        egui::Rounding::default(),
+                        egui::Color32::from_rgb(score_color.r, score_color.g, score_color.b),
+                    );
+                    ui.painter().add(shape);
+
+                    // Identify button
                     if ui.button("✔").clicked() {
                         IdentifyActor::from_registry()
                             .try_send(IdentifyMessage {
@@ -229,24 +237,8 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
                             .unwrap();
                         *self.identified = true;
                     }
-                    let mut job = LayoutJob::default();
-                    job.append(
-                        &taxon.name,
-                        0.0,
-                        TextFormat {
-                            color: ui.visuals().text_color(),
-                            ..Default::default()
-                        },
-                    );
-                    job.append(
-                        &format!(" ({})", self.root_node.score.round()),
-                        0.0,
-                        TextFormat {
-                            color,
-                            ..Default::default()
-                        },
-                    );
-                    ui.label(job);
+
+                    ui.label(&taxon.name);
                 }
                 Some(TaxaValue::Loading) => {
                     unimplemented!()
