@@ -1,12 +1,9 @@
 use futures::FutureExt;
 use geo_ext::Halve;
-use inaturalist::apis::configuration::ApiKey;
-use std::{num, pin::Pin, sync};
+use inaturalist::apis::{configuration::ApiKey, observations_api::ObservationsGetParams};
+use std::{pin::Pin, sync};
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
-
-const INATURALIST_RATE_LIMIT_AMOUNT: governor::Quota =
-    governor::Quota::per_second(unsafe { num::NonZeroU32::new_unchecked(1) });
 
 lazy_static::lazy_static! {
     static ref INATURALIST_REQUEST_CONFIG: inaturalist::apis::configuration::Configuration =
@@ -21,15 +18,18 @@ lazy_static::lazy_static! {
             ..Default::default()
         };
 
+    pub static ref INATURALIST_RATE_LIMIT_AMOUNT: governor::Quota =
+        governor::Quota::with_period(std::time::Duration::from_secs(2)).unwrap();
+
     pub static ref INATURALIST_RATE_LIMITER: governor::RateLimiter<
         governor::state::direct::NotKeyed,
         governor::state::InMemoryState,
         governor::clock::DefaultClock,
     > =
-        governor::RateLimiter::direct(INATURALIST_RATE_LIMIT_AMOUNT);
+        governor::RateLimiter::direct(*INATURALIST_RATE_LIMIT_AMOUNT);
 }
 
-const API_TOKEN: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2Nzk5Nzk3Mjh9.ibS12Tq_PrkypVGofzXittZFsr1GIW25Hd7-NjczKtoaoejEg-551-cxVDjpexOmyz4gEOwp1ckpes4ZsYRVXw";
+const API_TOKEN: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2ODAxMzk0NzN9._8qTfRAWB9k3pumSUybeWcpMxozYzqMWP0dOl9MjRZfaNxT2DjSbrA9NnI94l_CpMZPUq0EwJKAJeHw5eokFUA";
 
 #[derive(Copy, Clone)]
 pub struct SubdividedRect(pub crate::Rect);
@@ -58,9 +58,16 @@ pub async fn subdivide_rect(rect: Rect) -> SubdivideRectReturn {
     let per_page = 1;
     INATURALIST_RATE_LIMITER.until_ready().await;
 
+    // todo as soon as we get to a good number, start returning
     let response = match inaturalist::apis::observations_api::observations_get(
         &INATURALIST_REQUEST_CONFIG,
-        build_params(rect, page, per_page),
+        merge_params(
+            ObservationsGetParams {
+                only_id: Some(true),
+                ..Default::default()
+            },
+            build_params(rect, page, per_page),
+        ),
     )
     .await
     {

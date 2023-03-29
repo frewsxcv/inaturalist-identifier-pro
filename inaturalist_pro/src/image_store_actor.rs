@@ -57,14 +57,14 @@ async fn fetch_image(
         .until_ready()
         .await;
     tracing::info!("Fetching image...");
-    let response = reqwest::get(url).await?;
+    let response = reqwest::get(&url).await?;
     tracing::info!("Fetched image. Parsing response...");
     let retained_image = parse_image_response(response).await?;
     tracing::info!("Parsed response. Storing image...");
     image_store
         .write()
         .unwrap()
-        .insert(observation.id.unwrap(), retained_image);
+        .insert(observation.id.unwrap(), url, retained_image);
     tracing::info!("Stored iamge.");
     Ok(())
 }

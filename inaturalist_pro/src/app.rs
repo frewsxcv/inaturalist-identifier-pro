@@ -124,7 +124,7 @@ impl eframe::App for App {
                 ui.heading("Results");
                 for (i, query_result) in self.results.iter().enumerate() {
                     ui.horizontal(|ui| {
-                        if let Some(image) = self
+                        if let Some((url, image)) = self
                             .image_store
                             .read()
                             .unwrap()
@@ -136,7 +136,16 @@ impl eframe::App for App {
                                 egui::Vec2::new(MAX_WIDTH, image.height() as f32 * scale);
                             ui.add_sized(image_size, |ui: &mut egui::Ui| {
                                 if ui.max_rect().intersects(rect) {
-                                    image.show_size(ui, image_size)
+                                    let response = image.show_size(ui, image_size);
+                                    if image.show_size(ui, image_size).clicked() {
+                                        ui.ctx().output_mut(|o| {
+                                            o.open_url = Some(egui::output::OpenUrl {
+                                                url: url.into(),
+                                                new_tab: true,
+                                            });
+                                        });
+                                    }
+                                    response
                                 } else {
                                     ui.spinner()
                                 }
