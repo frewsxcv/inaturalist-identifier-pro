@@ -23,6 +23,7 @@ mod taxa_loader_actor;
 mod taxa_store;
 mod taxon_tree;
 mod taxon_tree_builder_actor;
+mod widgets;
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
@@ -30,6 +31,7 @@ type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 pub enum AppMessage {
     Progress,
     TaxonLoaded(Box<ShowTaxon>),
+    SkipCurrentObservation,
     Result(
         (
             Box<Observation>,
@@ -43,7 +45,7 @@ pub enum AppMessage {
 }
 
 lazy_static::lazy_static! {
-    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(200);
+    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(30);
 }
 
 type CurOperation = operations::TopImageScore;
@@ -99,10 +101,13 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     SystemRegistry::set(addr);
 
     let addr = TaxaLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
-        |_ctx| TaxaLoaderActor {
-            tx_app_message,
-            loaded: Default::default(),
-            to_load: Default::default(),
+        let tx_app_message = tx_app_message.clone();
+        {
+            |_ctx| TaxaLoaderActor {
+                tx_app_message,
+                loaded: Default::default(),
+                to_load: Default::default(),
+            }
         }
     });
     SystemRegistry::set(addr);
@@ -112,11 +117,13 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         eframe::NativeOptions::default(),
         Box::new(move |_| {
             Box::new(crate::app::App {
+                tx_app_message,
                 rx_app_message,
                 loaded_geohashes: 0,
                 results: vec![],
                 image_store,
                 taxa_store: Default::default(),
+                current_observation_id: None,
             })
         }),
     )?;

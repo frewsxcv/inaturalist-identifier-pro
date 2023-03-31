@@ -33,6 +33,7 @@ impl GeohashObservations {
         inaturalist_fetch::subdivide_rect(self.0.bounding_rect)
             .await
             .filter(|_| {
+                tracing::info!("FILTER");
                 if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
                     return futures::future::ready(false);
                 }
@@ -43,6 +44,7 @@ impl GeohashObservations {
                     Ok(rect) => rect,
                     Err(e) => return Err(FetchFromApiError::INaturalistApi(e)),
                 };
+                tracing::info!("FETCHING");
                 match inaturalist_fetch::fetch(
                     rect.0,
                     #[allow(clippy::redundant_closure)]
