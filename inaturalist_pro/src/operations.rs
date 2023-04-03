@@ -65,11 +65,17 @@ impl Operation for TopImageScore {
         tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) -> Result<(), Box<dyn error::Error>> {
         actix::spawn(async move {
+            let observation_id = observation.id.unwrap();
+            tx_app_message
+                .send(AppMessage::ObservationLoaded(Box::new(observation.clone())))
+                .unwrap();
             let results =
                 inaturalist_fetch::fetch_computer_vision_observation_scores(&observation).await;
-            let _url = observation.uri.clone().unwrap_or_default();
             tx_app_message
-                .send(AppMessage::Result((Box::new(observation), results.results)))
+                .send(AppMessage::ComputerVisionScoreLoaded(
+                    observation_id,
+                    results.results,
+                ))
                 .unwrap();
         });
         Ok(())

@@ -26,38 +26,11 @@ pub(crate) struct App {
 
 pub struct QueryResult {
     observation: Observation,
-    scores: Vec<inaturalist_fetch::ComputerVisionObservationScore>,
+    scores: Option<Vec<inaturalist_fetch::ComputerVisionObservationScore>>,
     taxon_tree: crate::taxon_tree::TaxonTree,
 }
 
 impl App {
-    fn handle_new_result(
-        &mut self,
-        observation: Box<Observation>,
-        scores: Vec<inaturalist_fetch::ComputerVisionObservationScore>,
-    ) {
-        if self.current_observation_id.is_none() {
-            self.current_observation_id = observation.id;
-        }
-
-        self.results.push(QueryResult {
-            observation: *observation.clone(),
-            scores: scores.clone(),
-            taxon_tree: Default::default(),
-        });
-
-        self.results.sort_unstable_by(|a, b| {
-            a.scores[0]
-                .combined_score
-                .partial_cmp(&b.scores[0].combined_score)
-                .unwrap()
-                .reverse()
-        });
-
-        self.build_taxon_tree_in_background_thread(&observation, scores);
-        self.load_image_in_background_thread(observation);
-    }
-
     fn build_taxon_tree_in_background_thread(
         &self,
         observation: &Observation,
@@ -90,8 +63,30 @@ impl eframe::App for App {
                         .0
                         .insert(taxon.id.unwrap(), (&*taxon).into());
                 }
-                crate::AppMessage::Result((observation, scores)) => {
-                    self.handle_new_result(observation, scores)
+                crate::AppMessage::ObservationLoaded(observation) => {
+                    if self.current_observation_id.is_none() {
+                        self.current_observation_id = observation.id;
+                    }
+
+                    self.results.push(QueryResult {
+                        observation: *observation.clone(),
+                        scores: None,
+                        taxon_tree: Default::default(),
+                    });
+
+                    self.load_image_in_background_thread(observation);
+                }
+                crate::AppMessage::ComputerVisionScoreLoaded(observation_id, scores) => {
+                    let Some(observation_index) = self.find_index_for_observation_id(observation_id) else {
+                        // TODO: Log error here
+                        return;
+                    };
+                    self.build_taxon_tree_in_background_thread(
+                        &self.results[observation_index].observation,
+                        scores.clone(),
+                    );
+                    self.results[observation_index].scores = Some(scores);
+                    self.sort_results();
                 }
                 crate::AppMessage::TaxonTree {
                     observation_id,
@@ -207,11 +202,30 @@ impl App {
     }
 
     fn find_index_for_current_observation(&self) -> Option<usize> {
+        self.current_observation_id
+            .and_then(|id| self.find_index_for_observation_id(id))
+    }
+
+    fn find_index_for_observation_id(&self, observation_id: ObservationId) -> Option<usize> {
         self.results
             .iter()
             .enumerate()
-            .find(|(_, result)| result.observation.id == self.current_observation_id)
+            .find(|(_, result)| result.observation.id.unwrap() == observation_id)
             .map(|(i, _)| i)
+    }
+
+    fn sort_results(&mut self) {
+        self.results.sort_unstable_by(|a, b| {
+            let score_a = a
+                .scores
+                .as_ref()
+                .map_or(0., |scores| scores[0].combined_score);
+            let score_b = b
+                .scores
+                .as_ref()
+                .map_or(0., |scores| scores[0].combined_score);
+            score_a.partial_cmp(&score_b).unwrap().reverse()
+        });
     }
 }
 

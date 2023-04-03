@@ -27,17 +27,15 @@ mod widgets;
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
+type ObservationId = i32;
+
 #[derive(Debug)]
 pub enum AppMessage {
     Progress,
     TaxonLoaded(Box<ShowTaxon>),
     SkipCurrentObservation,
-    Result(
-        (
-            Box<Observation>,
-            Vec<inaturalist_fetch::ComputerVisionObservationScore>,
-        ),
-    ),
+    ObservationLoaded(Box<Observation>),
+    ComputerVisionScoreLoaded(ObservationId, Vec<inaturalist_fetch::ComputerVisionObservationScore>),
     TaxonTree {
         observation_id: i32,
         taxon_tree: taxon_tree::TaxonTree,
