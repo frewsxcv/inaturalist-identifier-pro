@@ -60,39 +60,6 @@ impl GeohashObservations {
             }
         }
 
-        /*
-        inaturalist_fetch::subdivide_rect(self.0.bounding_rect)
-            .await
-            .filter(|_| {
-                tracing::info!("FILTER");
-                if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
-                    return futures::future::ready(false);
-                }
-                futures::future::ready(true)
-            })
-            .then(|s| async {
-                let rect = match s {
-                    Ok(rect) => rect,
-                    Err(e) => return Err(FetchFromApiError::INaturalistApi(e)),
-                };
-                tracing::info!("FETCHING");
-                match inaturalist_fetch::fetch(
-                    rect.0,
-                    #[allow(clippy::redundant_closure)]
-                    |o| on_observation(o),
-                    soft_limit,
-                    request.clone(),
-                )
-                .await
-                {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(FetchFromApiError::INaturalistApi(e)),
-                }
-            })
-            .for_each(|_| futures::future::ready(()))
-            .await;
-            */
-
         Ok(())
     }
 }
