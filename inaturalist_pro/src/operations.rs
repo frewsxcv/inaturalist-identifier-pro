@@ -64,6 +64,7 @@ impl Operation for TopImageScore {
         observation: crate::Observation,
         tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     ) -> Result<(), Box<dyn error::Error>> {
+        tracing::info!("VISIT OBSERVATION");
         actix::spawn(async move {
             let observation_id = observation.id.unwrap();
             tx_app_message

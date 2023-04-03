@@ -1,6 +1,6 @@
-use futures::FutureExt;
 use geo_ext::Halve;
-use inaturalist::apis::{configuration::ApiKey, observations_api::ObservationsGetParams};
+use inaturalist::apis::configuration::ApiKey;
+use std::future::Future;
 use std::{pin::Pin, sync};
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
@@ -31,7 +31,7 @@ lazy_static::lazy_static! {
 
 const API_TOKEN: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2ODA1NzA5MzB9.uSynDLaSEFZKDweG16kg9LktNCkN_adsEki42CU51QT2BIztVcWkAtbVsApd5cbHI7nExZMAUlLa1syRW3tQ8g";
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct SubdividedRect(pub crate::Rect);
 
 /// iNaturalist will not let us page past 10,000 results.
@@ -39,58 +39,62 @@ const MAX_RESULTS: i32 = 10_000;
 
 const MAX_RESULTS_PER_PAGE: u32 = 200;
 
-type SubdivideRectReturn = Pin<
-    Box<
-        dyn futures::Stream<
-                Item = Result<
-                    SubdividedRect,
-                    inaturalist::apis::Error<
-                        inaturalist::apis::observations_api::ObservationsGetError,
-                    >,
-                >,
-            > + Send,
+pub fn subdivide_rect_iter(
+    rect: Rect,
+    mut request: inaturalist::apis::observations_api::ObservationsGetParams,
+) -> genawaiter::sync::Gen<
+    Result<
+        SubdividedRect,
+        inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
     >,
->;
+    (),
+    Pin<Box<dyn Future<Output = ()> + Send>>,
+> {
+    request.only_id = Some(true);
+    tracing::info!("rect size: {:?}", rect);
 
-#[async_recursion::async_recursion]
-pub async fn subdivide_rect(rect: Rect) -> SubdivideRectReturn {
-    let page = 1;
-    let per_page = 1;
-    INATURALIST_RATE_LIMITER.until_ready().await;
+    genawaiter::sync::Gen::new_boxed(|co| async move {
+        let page = 1;
+        let per_page = 1;
+        INATURALIST_RATE_LIMITER.until_ready().await;
 
-    // todo as soon as we get to a good number, start returning
-    let response = match inaturalist::apis::observations_api::observations_get(
-        &INATURALIST_REQUEST_CONFIG,
-        merge_params(
-            ObservationsGetParams {
-                only_id: Some(true),
-                ..Default::default()
-            },
-            build_params(rect, page, per_page),
-        ),
-    )
-    .await
-    {
-        Ok(r) => r,
-        Err(e) => return Box::pin(futures::future::err(e).into_stream()) as SubdivideRectReturn,
-    };
+        let response = match inaturalist::apis::observations_api::observations_get(
+            &INATURALIST_REQUEST_CONFIG,
+            merge_params(build_params(rect, page, per_page), request.clone()),
+        )
+        .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                co.yield_(Err(e)).await;
+                return;
+            }
+        };
 
-    if response.total_results.unwrap() < MAX_RESULTS {
-        tracing::info!("Rect is sufficient");
-        return Box::pin(futures::future::ok(SubdividedRect(rect)).into_stream())
-            as SubdivideRectReturn;
-    }
+        if response.total_results.unwrap() < MAX_RESULTS {
+            tracing::info!("Rect is sufficient");
+            co.yield_(Ok(SubdividedRect(rect))).await;
+            return;
+        }
 
-    tracing::info!(
-        "Splitting rect (total_results: {})",
-        response.total_results.unwrap()
-    );
-    let (rect1, rect2) = rect.halve();
+        tracing::info!(
+            "Splitting rect (total_results: {})",
+            response.total_results.unwrap()
+        );
+        let (rect1, rect2) = rect.halve();
 
-    Box::pin(futures::stream::select(
-        subdivide_rect(rect1).await,
-        subdivide_rect(rect2).await,
-    ))
+        let mut gen = subdivide_rect_iter(rect1, request.clone());
+        while let genawaiter::GeneratorState::Yielded(n) = gen.async_resume().await {
+            tracing::info!("Yield rect1");
+            co.yield_(n).await;
+        }
+
+        let mut gen = subdivide_rect_iter(rect2, request.clone());
+        while let genawaiter::GeneratorState::Yielded(n) = gen.async_resume().await {
+            tracing::info!("Yield rect1");
+            co.yield_(n).await;
+        }
+    })
 }
 
 pub async fn fetch(
@@ -114,12 +118,14 @@ pub async fn fetch(
             merge_params(request.clone(), build_params(rect, page, per_page)),
         )
         .await?;
+        tracing::info!("Fetched {} observations...", response.results.len());
 
         soft_limit.fetch_sub(
             response.results.len() as i32,
             sync::atomic::Ordering::Relaxed,
         );
         for result in response.results {
+            tracing::info!("ON OBSERVATION");
             on_observation(result);
         }
 

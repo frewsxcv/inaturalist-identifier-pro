@@ -1,6 +1,5 @@
 use crate::geohash_ext::Geohash;
 use crate::Observation;
-use futures::StreamExt;
 use std::sync;
 
 #[derive(thiserror::Error, Debug)]
@@ -30,6 +29,38 @@ impl GeohashObservations {
             return Ok(());
         }
 
+        let mut gen = inaturalist_fetch::subdivide_rect_iter(self.0.bounding_rect, request.clone());
+        while let genawaiter::GeneratorState::Yielded(result) = gen.async_resume().await {
+            tracing::info!("Yielding: {:?}", result);
+            // tracing::info!("Received new observations");
+            /*
+            tracing::info!("FILTER");
+            if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
+                return futures::future::ready(false);
+            }
+            futures::future::ready(true)
+            */
+
+            let rect = match result {
+                Ok(rect) => rect,
+                Err(e) => return Err(FetchFromApiError::INaturalistApi(e)),
+            };
+
+            match inaturalist_fetch::fetch(
+                rect.0,
+                #[allow(clippy::redundant_closure)]
+                |o| on_observation(o),
+                soft_limit,
+                request.clone(),
+            )
+            .await
+            {
+                Ok(_) => (),
+                Err(e) => return Err(FetchFromApiError::INaturalistApi(e)),
+            }
+        }
+
+        /*
         inaturalist_fetch::subdivide_rect(self.0.bounding_rect)
             .await
             .filter(|_| {
@@ -60,6 +91,7 @@ impl GeohashObservations {
             })
             .for_each(|_| futures::future::ready(()))
             .await;
+            */
 
         Ok(())
     }
