@@ -29,7 +29,7 @@ lazy_static::lazy_static! {
         governor::RateLimiter::direct(*INATURALIST_RATE_LIMIT_AMOUNT);
 }
 
-const API_TOKEN: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2ODA1NzA5MzB9.uSynDLaSEFZKDweG16kg9LktNCkN_adsEki42CU51QT2BIztVcWkAtbVsApd5cbHI7nExZMAUlLa1syRW3tQ8g";
+const API_TOKEN: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE2ODc2NjM4NzN9.iSDGIEMaRMQivO65b-bhnC2j3c_F-YRvOSU82PrjpZVHuUpGUff44PpCqQ_M7SBy-IrQdc3HlVL5Cy_nykb9WA";
 
 #[derive(Copy, Clone, Debug)]
 pub struct SubdividedRect(pub crate::Rect);
