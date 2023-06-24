@@ -8,7 +8,7 @@ publish = false
 async-recursion = "1"
 futures = "0.3"
 genawaiter = "0.99"
-geo = "0.24"
+geo = "0.25"
 geo-ext = { path = "../geo-ext" }
 governor = "0.5"
 inaturalist = "0.5"
