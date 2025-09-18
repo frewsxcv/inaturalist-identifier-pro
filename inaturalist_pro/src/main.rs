@@ -111,7 +111,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     SystemRegistry::set(addr);
 
     eframe::run_native(
-        "eframe template",
+        "iNaturalist Identifier Pro",
         eframe::NativeOptions::default(),
         Box::new(move |_| {
             Box::new(crate::app::App {
