@@ -35,7 +35,10 @@ pub enum AppMessage {
     TaxonLoaded(Box<ShowTaxon>),
     SkipCurrentObservation,
     ObservationLoaded(Box<Observation>),
-    ComputerVisionScoreLoaded(ObservationId, Vec<inaturalist_fetch::ComputerVisionObservationScore>),
+    ComputerVisionScoreLoaded(
+        ObservationId,
+        Vec<inaturalist_fetch::ComputerVisionObservationScore>,
+    ),
     TaxonTree {
         observation_id: i32,
         taxon_tree: taxon_tree::TaxonTree,
