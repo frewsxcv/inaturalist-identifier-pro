@@ -18,16 +18,24 @@ pub fn get_inaturalist_request_config(
     }
 }
 
-lazy_static::lazy_static! {
-    pub static ref INATURALIST_RATE_LIMIT_AMOUNT: governor::Quota =
-        governor::Quota::with_period(std::time::Duration::from_secs(2)).unwrap();
+use std::sync::OnceLock;
 
-    pub static ref INATURALIST_RATE_LIMITER: governor::RateLimiter<
-        governor::state::direct::NotKeyed,
-        governor::state::InMemoryState,
-        governor::clock::DefaultClock,
-    > =
-        governor::RateLimiter::direct(*INATURALIST_RATE_LIMIT_AMOUNT);
+static INATURALIST_RATE_LIMIT_AMOUNT_CELL: OnceLock<governor::Quota> = OnceLock::new();
+pub fn inaturalist_rate_limit_amount() -> &'static governor::Quota {
+    INATURALIST_RATE_LIMIT_AMOUNT_CELL
+        .get_or_init(|| governor::Quota::with_period(std::time::Duration::from_secs(2)).unwrap())
+}
+
+type RateLimiter = governor::RateLimiter<
+    governor::state::direct::NotKeyed,
+    governor::state::InMemoryState,
+    governor::clock::DefaultClock,
+>;
+
+static INATURALIST_RATE_LIMITER_CELL: OnceLock<RateLimiter> = OnceLock::new();
+pub fn inaturalist_rate_limiter() -> &'static RateLimiter {
+    INATURALIST_RATE_LIMITER_CELL
+        .get_or_init(|| governor::RateLimiter::direct(*inaturalist_rate_limit_amount()))
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -56,7 +64,7 @@ pub fn subdivide_rect_iter(
     genawaiter::sync::Gen::new_boxed(|co| async move {
         let page = 1;
         let per_page = 1;
-        INATURALIST_RATE_LIMITER.until_ready().await;
+        inaturalist_rate_limiter().until_ready().await;
 
         let response = match inaturalist::apis::observations_api::observations_get(
             &get_inaturalist_request_config(&api_token),
@@ -113,7 +121,7 @@ pub async fn fetch(
         }
 
         tracing::info!("Fetching observations...");
-        INATURALIST_RATE_LIMITER.until_ready().await;
+        inaturalist_rate_limiter().until_ready().await;
         let response = inaturalist::apis::observations_api::observations_get(
             &get_inaturalist_request_config(api_token),
             merge_params(request.clone(), build_params(rect, page, per_page)),
@@ -389,7 +397,7 @@ pub async fn fetch_taxa(
     inaturalist::apis::Error<inaturalist::apis::taxa_api::TaxaIdGetError>,
 > {
     tracing::info!("Fetching taxa IDs = {:?}", taxa_ids);
-    INATURALIST_RATE_LIMITER.until_ready().await;
+    inaturalist_rate_limiter().until_ready().await;
     let taxa = inaturalist::apis::taxa_api::taxa_id_get(
         &get_inaturalist_request_config(api_token),
         inaturalist::apis::taxa_api::TaxaIdGetParams {
@@ -428,7 +436,7 @@ pub async fn fetch_computer_vision_observation_scores(
     tracing::info!("Fetch observation score (observation ID: {observation_id}");
     let url =
         format!("https://api.inaturalist.org/v1/computervision/score_observation/{observation_id}");
-    INATURALIST_RATE_LIMITER.until_ready().await;
+    inaturalist_rate_limiter().until_ready().await;
     let response = reqwest::Client::new()
         .get(url)
         .header("Authorization", api_token)

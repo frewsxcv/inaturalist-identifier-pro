@@ -32,7 +32,7 @@ impl Actor for ObservationLoaderActor {
                                 .try_send(ProcessObservationMessage { observation })
                                 .unwrap();
                         },
-                        &crate::FETCH_SOFT_LIMIT,
+                        crate::fetch_soft_limit(),
                         crate::CurOperation::request(),
                         &api_token,
                     )

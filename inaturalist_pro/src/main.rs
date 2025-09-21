@@ -57,8 +57,11 @@ pub enum AppMessage {
     },
 }
 
-lazy_static::lazy_static! {
-    static ref FETCH_SOFT_LIMIT: sync::atomic::AtomicI32 = sync::atomic::AtomicI32::new(30);
+use std::sync::OnceLock;
+
+static FETCH_SOFT_LIMIT_CELL: OnceLock<sync::atomic::AtomicI32> = OnceLock::new();
+fn fetch_soft_limit() -> &'static sync::atomic::AtomicI32 {
+    FETCH_SOFT_LIMIT_CELL.get_or_init(|| sync::atomic::AtomicI32::new(30))
 }
 
 type CurOperation = operations::TopImageScore;
@@ -75,7 +78,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         return Ok(());
     };
 
-    let grid = GeohashGrid::from_rect(*places::NYC, 4);
+    let grid = GeohashGrid::from_rect(places::nyc().clone(), 4);
 
     let operation = CurOperation::default();
 

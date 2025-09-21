@@ -12,7 +12,6 @@ geo = "0.25"
 geo-ext = { path = "../geo-ext" }
 governor = "0.5"
 inaturalist = "0.7"
-lazy_static = "1"
 oauth2 = "4.3.0"
 ordered-float = { version = "3", features = ["serde"] }
 reqwest = "0.12"

@@ -53,7 +53,7 @@ async fn fetch_image(
     image_store: sync::Arc<sync::RwLock<crate::image_store::ImageStore>>,
     observation: Observation,
 ) -> Result<(), Box<dyn error::Error>> {
-    inaturalist_fetch::INATURALIST_RATE_LIMITER
+    inaturalist_fetch::inaturalist_rate_limiter()
         .until_ready()
         .await;
     tracing::info!("Fetching image...");
