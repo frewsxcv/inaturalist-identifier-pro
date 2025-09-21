@@ -20,12 +20,12 @@ impl Default for MyConfig {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn get_api_token() -> Result<String, Box<dyn std::error::Error>> {
     let mut cfg: MyConfig = confy::load("inaturalist-fetch", None)?;
 
     if let Some(token) = &cfg.api_token {
         println!("Using existing API token: {}", token);
-        return Ok(());
+        return Ok(token.clone());
     }
 
     let client = BasicClient::new(
@@ -88,35 +88,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let token_response = client
         .exchange_code(code.unwrap())
         .set_pkce_verifier(pkce_verifier)
-        .request(oauth2::reqwest::http_client);
-
-    if let Ok(token) = token_response {
-        let token_string = token.access_token().secret();
-
-        println!("OAuth access token: {}", token_string);
-
-        let mut headers = HeaderMap::new();
-        headers.append(
-            "Authorization",
-            HeaderValue::from_str(&format!("Bearer {token_string}")).unwrap(),
-        );
-        let response = oauth2::reqwest::http_client(oauth2::HttpRequest {
-            body: vec![],
-            headers,
-            url: "https://www.inaturalist.org/users/api_token"
-                .try_into()
-                .unwrap(),
-            method: Method::GET,
-        })
+        .request(oauth2::reqwest::http_client)
         .unwrap();
 
-        let response: ApiTokenResponse = serde_json::from_slice(&response.body).unwrap();
-        println!("OAuth API token: {}", response.api_token);
-        cfg.api_token = Some(response.api_token);
-        confy::store("inaturalist-fetch", None, cfg)?;
-    }
+    let token_string = token_response.access_token().secret();
 
-    Ok(())
+    println!("OAuth access token: {}", token_string);
+
+    let mut headers = HeaderMap::new();
+    headers.append(
+        "Authorization",
+        HeaderValue::from_str(&format!("Bearer {token_string}")).unwrap(),
+    );
+    let response = oauth2::reqwest::http_client(oauth2::HttpRequest {
+        body: vec![],
+        headers,
+        url: "https://www.inaturalist.org/users/api_token"
+            .try_into()
+            .unwrap(),
+        method: Method::GET,
+    })
+    .unwrap();
+
+    let response: ApiTokenResponse = serde_json::from_slice(&response.body).unwrap();
+    println!("OAuth API token: {}", response.api_token);
+    cfg.api_token = Some(response.api_token.clone());
+    confy::store("inaturalist-fetch", None, cfg)?;
+    Ok(response.api_token)
 }
 
 #[derive(Deserialize)]
