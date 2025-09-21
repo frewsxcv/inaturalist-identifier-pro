@@ -1,19 +1,23 @@
 use crate::geohash_ext::Geohash;
 use crate::Observation;
+use std::error::Error;
 use std::sync;
 
-#[derive(thiserror::Error, Debug)]
-pub enum FetchError {
-    #[error("{0}")]
-    FetchFromApi(#[from] FetchFromApiError),
+#[derive(Debug)]
+pub enum FetchFromApiError {
+    INaturalistApi(
+        inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
+    ),
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum FetchFromApiError {
-    #[error("{0}")]
-    INaturalistApi(
-        #[from] inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
-    ),
+impl Error for FetchFromApiError {}
+
+impl std::fmt::Display for FetchFromApiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FetchFromApiError::INaturalistApi(e) => write!(f, "iNaturalist API error: {e}"),
+        }
+    }
 }
 
 pub struct GeohashObservations(pub Geohash);
