@@ -1,16 +1,33 @@
 use oauth2::basic::BasicClient;
-
-use oauth2::http::{HeaderMap, HeaderValue};
+use oauth2::http::{HeaderMap, HeaderValue, Method};
 use oauth2::{
-    AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl, TokenResponse,
-    TokenUrl,
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge,
+    RedirectUrl, TokenResponse, TokenUrl,
 };
-use reqwest::Method;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::io::{BufRead, BufReader, Write};
+use std::net::TcpListener;
+use url::Url;
+
+#[derive(Serialize, Deserialize, Debug)]
+struct MyConfig {
+    api_token: Option<String>,
+}
+
+impl Default for MyConfig {
+    fn default() -> Self {
+        Self { api_token: None }
+    }
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create an OAuth2 client by specifying the client ID, client secret, authorization URL and
-    // token URL.
+    let mut cfg: MyConfig = confy::load("inaturalist-fetch", None)?;
+
+    if let Some(token) = &cfg.api_token {
+        println!("Using existing API token: {}", token);
+        return Ok(());
+    }
+
     let client = BasicClient::new(
         ClientId::new("h_gk-W1QMcTwTAH4pmo3TEitkJzeeZphpsj7TM_yq18".to_string()),
         Some(ClientSecret::new(
@@ -21,10 +38,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "https://www.inaturalist.org/oauth/token".to_string(),
         )?),
     )
-    // Set the URL the user will be redirected to after the authorization process.
-    .set_redirect_uri(RedirectUrl::new("https://localhost".to_string())?);
+    .set_redirect_uri(RedirectUrl::new("http://localhost:8080".to_string())?);
 
-    // Generate a PKCE challenge.
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
     let (auth_url, _csrf_token) = client
@@ -32,15 +47,46 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_pkce_challenge(pkce_challenge)
         .url();
 
-    // This is the URL you should redirect the user to, in order to trigger the authorization
-    // process.
-    println!("Browse to: {}", auth_url);
+    println!("Opening browser to: {}", auth_url);
+    opener::open(auth_url.to_string())?;
 
-    let Some(code) = std::io::stdin().lines().next() else { return Ok(()) };
-    let code = oauth2::AuthorizationCode::new(code.unwrap());
+    let listener = TcpListener::bind("127.0.0.1:8080")?;
+    let mut code: Option<AuthorizationCode> = None;
+    for stream in listener.incoming() {
+        if let Ok(mut stream) = stream {
+            {
+                let mut reader = BufReader::new(&stream);
+                let mut request_line = String::new();
+                reader.read_line(&mut request_line).unwrap();
+
+                let redirect_url = request_line.split_whitespace().nth(1).unwrap();
+                let url = Url::parse(&("http://localhost".to_string() + redirect_url)).unwrap();
+
+                let code_pair = url
+                    .query_pairs()
+                    .find(|pair| {
+                        let &(ref key, _) = pair;
+                        key == "code"
+                    })
+                    .unwrap();
+
+                let (_, value) = code_pair;
+                code = Some(AuthorizationCode::new(value.into_owned()));
+            }
+
+            let message = "<h1>Success!</h1><p>You can close this window now.</p>";
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-length: {}\r\n\r\n{}",
+                message.len(),
+                message
+            );
+            stream.write_all(response.as_bytes()).unwrap();
+            break;
+        }
+    }
 
     let token_response = client
-        .exchange_code(code)
+        .exchange_code(code.unwrap())
         .set_pkce_verifier(pkce_verifier)
         .request(oauth2::reqwest::http_client);
 
@@ -64,14 +110,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .unwrap();
 
-        let response = serde_json::from_slice::<ApiTokenResponse>(&response.body).unwrap();
+        let response: ApiTokenResponse = serde_json::from_slice(&response.body).unwrap();
         println!("OAuth API token: {}", response.api_token);
+        cfg.api_token = Some(response.api_token);
+        confy::store("inaturalist-fetch", None, cfg)?;
     }
 
     Ok(())
 }
 
 #[derive(Deserialize)]
-struct ApiTokenResponse<'a> {
-    api_token: &'a str,
+struct ApiTokenResponse {
+    api_token: String,
 }

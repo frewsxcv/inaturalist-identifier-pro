@@ -24,12 +24,17 @@ impl GeohashObservations {
         on_observation: impl Fn(Observation),
         soft_limit: &sync::atomic::AtomicI32,
         request: inaturalist::apis::observations_api::ObservationsGetParams,
+        api_token: &str,
     ) -> Result<(), FetchFromApiError> {
         if soft_limit.load(sync::atomic::Ordering::Relaxed) < 0 {
             return Ok(());
         }
 
-        let mut gen = inaturalist_fetch::subdivide_rect_iter(self.0.bounding_rect, request.clone());
+        let mut gen = inaturalist_fetch::subdivide_rect_iter(
+            self.0.bounding_rect,
+            request.clone(),
+            api_token.to_string(),
+        );
         while let genawaiter::GeneratorState::Yielded(result) = gen.async_resume().await {
             tracing::info!("Yielding: {:?}", result);
             // tracing::info!("Received new observations");
@@ -52,6 +57,7 @@ impl GeohashObservations {
                 |o| on_observation(o),
                 soft_limit,
                 request.clone(),
+                api_token,
             )
             .await
             {

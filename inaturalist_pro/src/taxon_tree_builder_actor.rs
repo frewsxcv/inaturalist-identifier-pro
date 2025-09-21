@@ -7,6 +7,7 @@ use actix::prelude::*;
 
 pub struct TaxonTreeBuilderActor {
     pub tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+    pub api_token: String,
 }
 
 pub struct BuildTaxonTreeMessage {
@@ -37,13 +38,14 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
 
     fn handle(&mut self, msg: BuildTaxonTreeMessage, ctx: &mut Self::Context) -> Self::Result {
         let tx_app_message = self.tx_app_message.clone();
+        let api_token = self.api_token.clone();
         let t = async move {
             let taxa_ids = msg
                 .scores
                 .iter()
                 .map(|n| n.taxon.id.unwrap())
                 .collect::<Vec<_>>();
-            let taxa = inaturalist_fetch::fetch_taxa(taxa_ids)
+            let taxa = inaturalist_fetch::fetch_taxa(taxa_ids, &api_token)
                 .await
                 .unwrap()
                 .results;

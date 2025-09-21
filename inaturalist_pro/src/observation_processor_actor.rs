@@ -6,6 +6,7 @@ use tokio::sync::mpsc::UnboundedSender;
 pub struct ObservationProcessorActor {
     pub operation: crate::CurOperation,
     pub tx_app_message: UnboundedSender<AppMessage>,
+    pub api_token: String,
 }
 
 impl Default for ObservationProcessorActor {
@@ -35,7 +36,11 @@ impl Handler<ProcessObservationMessage> for ObservationProcessorActor {
 
     fn handle(&mut self, msg: ProcessObservationMessage, _ctx: &mut Self::Context) -> Self::Result {
         self.operation
-            .visit_observation(msg.observation, self.tx_app_message.clone())
+            .visit_observation(
+                msg.observation,
+                self.tx_app_message.clone(),
+                &self.api_token,
+            )
             .unwrap();
     }
 }

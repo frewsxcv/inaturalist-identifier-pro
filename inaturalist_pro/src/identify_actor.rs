@@ -4,6 +4,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 pub struct IdentifyActor {
     pub tx_app_message: UnboundedSender<AppMessage>,
+    pub api_token: String,
 }
 
 impl Default for IdentifyActor {
@@ -34,6 +35,7 @@ impl Handler<IdentifyMessage> for IdentifyActor {
 
     fn handle(&mut self, msg: IdentifyMessage, ctx: &mut Self::Context) -> Self::Result {
         // let tx_app_message = self.tx_app_message.clone();
+        let api_token = self.api_token.clone();
         ctx.spawn(
             Box::pin(async move {
                 tracing::info!(
@@ -41,7 +43,8 @@ impl Handler<IdentifyMessage> for IdentifyActor {
                     msg.observation_id,
                     msg.taxon_id
                 );
-                if let Err(e) = inaturalist_fetch::identify(msg.observation_id, msg.taxon_id).await
+                if let Err(e) =
+                    inaturalist_fetch::identify(msg.observation_id, msg.taxon_id, &api_token).await
                 {
                     tracing::error!("Encountered an error while identifying: {:?}", e);
                 }

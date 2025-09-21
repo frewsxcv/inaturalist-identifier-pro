@@ -9,6 +9,7 @@ pub struct TaxaLoaderActor {
     pub tx_app_message: UnboundedSender<AppMessage>,
     pub to_load: collections::HashSet<TaxonId>,
     pub loaded: collections::HashSet<TaxonId>,
+    pub api_token: String,
 }
 
 impl Default for TaxaLoaderActor {
@@ -57,8 +58,9 @@ impl Handler<FetchTaxaMessage> for TaxaLoaderActor {
         ctx.wait(
             Box::pin({
                 let taxa_ids_to_fetch = taxa_ids_to_fetch.clone();
+                let api_token = self.api_token.clone();
                 async move {
-                    let taxa = inaturalist_fetch::fetch_taxa(taxa_ids_to_fetch)
+                    let taxa = inaturalist_fetch::fetch_taxa(taxa_ids_to_fetch, &api_token)
                         .await
                         .unwrap();
 

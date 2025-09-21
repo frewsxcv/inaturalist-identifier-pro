@@ -5,19 +5,20 @@ use std::{pin::Pin, sync};
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
-lazy_static::lazy_static! {
-    static ref INATURALIST_REQUEST_CONFIG: inaturalist::apis::configuration::Configuration =
-        inaturalist::apis::configuration::Configuration {
-            base_path: String::from("https://api.inaturalist.org/v1"),
-            // basic_auth: Some((API_TOKEN.to_string(), None)),
-            // oauth_access_token: Some(ACCESS_TOKEN.to_string()),
-            api_key: Some(ApiKey {
-                prefix: None,
-                key: API_TOKEN.into(),
-            }),
-            ..Default::default()
-        };
+pub fn get_inaturalist_request_config(
+    api_token: &str,
+) -> inaturalist::apis::configuration::Configuration {
+    inaturalist::apis::configuration::Configuration {
+        base_path: String::from("https://api.inaturalist.org/v1"),
+        api_key: Some(ApiKey {
+            prefix: None,
+            key: api_token.to_string(),
+        }),
+        ..Default::default()
+    }
+}
 
+lazy_static::lazy_static! {
     pub static ref INATURALIST_RATE_LIMIT_AMOUNT: governor::Quota =
         governor::Quota::with_period(std::time::Duration::from_secs(2)).unwrap();
 
@@ -28,8 +29,6 @@ lazy_static::lazy_static! {
     > =
         governor::RateLimiter::direct(*INATURALIST_RATE_LIMIT_AMOUNT);
 }
-
-const API_TOKEN: &str = "eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX2lkIjozMTkxNDIyLCJvYXV0aF9hcHBsaWNhdGlvbl9pZCI6ODEzLCJleHAiOjE3NTgyNDE5MDV9.kopepi2-91ehlLUCDUPV37IHcbn_XUO9u1y0iNpCxStMHHsz3nMY0LbQgCVMHiDULnswdtCqflqo2G4T-rCMOw";
 
 #[derive(Copy, Clone, Debug)]
 pub struct SubdividedRect(pub crate::Rect);
@@ -42,6 +41,7 @@ const MAX_RESULTS_PER_PAGE: u32 = 200;
 pub fn subdivide_rect_iter(
     rect: Rect,
     mut request: inaturalist::apis::observations_api::ObservationsGetParams,
+    api_token: String,
 ) -> genawaiter::sync::Gen<
     Result<
         SubdividedRect,
@@ -59,7 +59,7 @@ pub fn subdivide_rect_iter(
         INATURALIST_RATE_LIMITER.until_ready().await;
 
         let response = match inaturalist::apis::observations_api::observations_get(
-            &INATURALIST_REQUEST_CONFIG,
+            &get_inaturalist_request_config(&api_token),
             merge_params(build_params(rect, page, per_page), request.clone()),
         )
         .await
@@ -83,13 +83,13 @@ pub fn subdivide_rect_iter(
         );
         let (rect1, rect2) = rect.halve();
 
-        let mut gen = subdivide_rect_iter(rect1, request.clone());
+        let mut gen = subdivide_rect_iter(rect1, request.clone(), api_token.clone());
         while let genawaiter::GeneratorState::Yielded(n) = gen.async_resume().await {
             tracing::info!("Yield rect1");
             co.yield_(n).await;
         }
 
-        let mut gen = subdivide_rect_iter(rect2, request.clone());
+        let mut gen = subdivide_rect_iter(rect2, request.clone(), api_token);
         while let genawaiter::GeneratorState::Yielded(n) = gen.async_resume().await {
             tracing::info!("Yield rect1");
             co.yield_(n).await;
@@ -102,6 +102,7 @@ pub async fn fetch(
     on_observation: impl Fn(inaturalist::models::Observation),
     soft_limit: &sync::atomic::AtomicI32,
     request: inaturalist::apis::observations_api::ObservationsGetParams,
+    api_token: &str,
 ) -> Result<(), inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>>
 {
     let per_page = MAX_RESULTS_PER_PAGE;
@@ -114,7 +115,7 @@ pub async fn fetch(
         tracing::info!("Fetching observations...");
         INATURALIST_RATE_LIMITER.until_ready().await;
         let response = inaturalist::apis::observations_api::observations_get(
-            &INATURALIST_REQUEST_CONFIG,
+            &get_inaturalist_request_config(api_token),
             merge_params(request.clone(), build_params(rect, page, per_page)),
         )
         .await?;
@@ -382,6 +383,7 @@ fn merge_params(
 
 pub async fn fetch_taxa(
     taxa_ids: Vec<i32>,
+    api_token: &str,
 ) -> Result<
     inaturalist::models::TaxaShowResponse,
     inaturalist::apis::Error<inaturalist::apis::taxa_api::TaxaIdGetError>,
@@ -389,7 +391,7 @@ pub async fn fetch_taxa(
     tracing::info!("Fetching taxa IDs = {:?}", taxa_ids);
     INATURALIST_RATE_LIMITER.until_ready().await;
     let taxa = inaturalist::apis::taxa_api::taxa_id_get(
-        &INATURALIST_REQUEST_CONFIG,
+        &get_inaturalist_request_config(api_token),
         inaturalist::apis::taxa_api::TaxaIdGetParams {
             id: taxa_ids.clone(),
             rank_level: None,
@@ -420,6 +422,7 @@ pub struct ComputerVisionObservationScore {
 
 pub async fn fetch_computer_vision_observation_scores(
     observation: &inaturalist::models::Observation,
+    api_token: &str,
 ) -> ComputerVisionObservationScoreResponse {
     let observation_id = observation.id.unwrap();
     tracing::info!("Fetch observation score (observation ID: {observation_id}");
@@ -428,7 +431,7 @@ pub async fn fetch_computer_vision_observation_scores(
     INATURALIST_RATE_LIMITER.until_ready().await;
     let response = reqwest::Client::new()
         .get(url)
-        .header("Authorization", API_TOKEN)
+        .header("Authorization", api_token)
         .send()
         .await
         .unwrap();
@@ -446,9 +449,13 @@ pub async fn fetch_computer_vision_observation_scores(
     }
 }
 
-pub async fn identify(observation_id: i32, taxon_id: i32) -> Result<(), impl std::error::Error> {
+pub async fn identify(
+    observation_id: i32,
+    taxon_id: i32,
+    api_token: &str,
+) -> Result<(), impl std::error::Error> {
     inaturalist::apis::identifications_api::identifications_post(
-        &INATURALIST_REQUEST_CONFIG,
+        &get_inaturalist_request_config(api_token),
         inaturalist::apis::identifications_api::IdentificationsPostParams {
             body: Some(inaturalist::models::PostIdentification {
                 identification: Some(Box::new(

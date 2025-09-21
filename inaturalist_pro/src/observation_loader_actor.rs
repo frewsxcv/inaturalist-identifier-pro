@@ -7,6 +7,7 @@ use tokio::sync::mpsc::UnboundedSender;
 pub struct ObservationLoaderActor {
     pub tx_app_message: UnboundedSender<crate::AppMessage>,
     pub grid: GeohashGrid,
+    pub api_token: String,
 }
 
 impl Actor for ObservationLoaderActor {
@@ -15,6 +16,7 @@ impl Actor for ObservationLoaderActor {
     fn started(&mut self, ctx: &mut Self::Context) {
         let grid = self.grid.clone();
         let tx_app_message = self.tx_app_message.clone();
+        let api_token = self.api_token.clone();
         let t = async move {
             for (i, geohash) in grid.clone().0.into_iter().enumerate() {
                 tracing::info!(
@@ -32,6 +34,7 @@ impl Actor for ObservationLoaderActor {
                         },
                         &crate::FETCH_SOFT_LIMIT,
                         crate::CurOperation::request(),
+                        &api_token,
                     )
                     .await
                     .unwrap();

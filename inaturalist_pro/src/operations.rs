@@ -114,6 +114,7 @@ pub trait Operation {
         &mut self,
         _observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        _api_token: &str,
     ) -> Result<(), Box<dyn error::Error>> {
         Ok(())
     }
@@ -134,6 +135,7 @@ impl Operation for NoOp {
         &mut self,
         observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        _api_token: &str,
     ) -> Result<(), Box<dyn error::Error>> {
         self.0.push(observation);
         Ok(())
@@ -250,15 +252,20 @@ impl Operation for TopImageScore {
         &mut self,
         observation: crate::Observation,
         tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        api_token: &str,
     ) -> Result<(), Box<dyn error::Error>> {
         tracing::info!("VISIT OBSERVATION");
+        let api_token = api_token.to_string();
         actix::spawn(async move {
             let observation_id = observation.id.unwrap();
             tx_app_message
                 .send(AppMessage::ObservationLoaded(Box::new(observation.clone())))
                 .unwrap();
-            let results =
-                inaturalist_fetch::fetch_computer_vision_observation_scores(&observation).await;
+            let results = inaturalist_fetch::fetch_computer_vision_observation_scores(
+                &observation,
+                &api_token,
+            )
+            .await;
             tx_app_message
                 .send(AppMessage::ComputerVisionScoreLoaded(
                     observation_id,
@@ -278,6 +285,7 @@ impl Operation for PrintPlantae {
         &mut self,
         observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        _api_token: &str,
     ) -> Result<(), Box<dyn error::Error>> {
         if let Some(taxon) = &observation.taxon {
             if taxon.rank == Some("kingdom".to_string()) && observation.captive == Some(false) {
@@ -296,6 +304,7 @@ impl Operation for PrintAngiospermae {
         &mut self,
         observation: crate::Observation,
         _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        _api_token: &str,
     ) -> Result<(), Box<dyn error::Error>> {
         if let Some(taxon) = &observation.taxon {
             if taxon.id == Some(47125) && observation.captive == Some(false) {

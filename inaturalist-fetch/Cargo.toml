@@ -16,7 +16,11 @@ lazy_static = "1"
 oauth2 = "4.3.0"
 ordered-float = { version = "3", features = ["serde"] }
 reqwest = "0.12"
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive", "serde_derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
+tiny_http = "0.12"
+opener = "0.6"
+url = "2.3.1"
+confy = "0.5.1"

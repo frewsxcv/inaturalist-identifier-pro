@@ -7,7 +7,19 @@ use observation_loader_actor::ObservationLoaderActor;
 use observation_processor_actor::ObservationProcessorActor;
 use std::{error, sync};
 use taxa_loader_actor::TaxaLoaderActor;
+use serde::{Deserialize, Serialize};
 use taxon_tree_builder_actor::TaxonTreeBuilderActor;
+
+#[derive(Serialize, Deserialize, Debug)]
+struct MyConfig {
+    api_token: Option<String>,
+}
+
+impl Default for MyConfig {
+    fn default() -> Self {
+        Self { api_token: None }
+    }
+}
 
 mod app;
 mod geohash_ext;
@@ -55,6 +67,14 @@ type CurOperation = operations::TopImageScore;
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
 
+    let cfg: MyConfig = confy::load("inaturalist-fetch", None)?;
+    let api_token = if let Some(token) = cfg.api_token {
+        token
+    } else {
+        println!("API token not found. Please run the inaturalist-fetch binary to authenticate.");
+        return Ok(());
+    };
+
     let grid = GeohashGrid::from_rect(*places::NYC, 4);
 
     let operation = CurOperation::default();
@@ -63,15 +83,21 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     ObservationLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
+        let api_token = api_token.clone();
         |_ctx| ObservationLoaderActor {
             tx_app_message,
             grid,
+            api_token,
         }
     });
 
     let addr = TaxonTreeBuilderActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
-        move |_ctx| TaxonTreeBuilderActor { tx_app_message }
+        let api_token = api_token.clone();
+        move |_ctx| TaxonTreeBuilderActor {
+            tx_app_message,
+            api_token,
+        }
     });
     SystemRegistry::set(addr);
 
@@ -84,10 +110,12 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let addr = ObservationProcessorActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
+        let api_token = api_token.clone();
         {
             |_ctx| observation_processor_actor::ObservationProcessorActor {
                 tx_app_message,
                 operation,
+                api_token,
             }
         }
     });
@@ -95,19 +123,25 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let addr = IdentifyActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
+        let api_token = api_token.clone();
         {
-            |_ctx| IdentifyActor { tx_app_message }
+            |_ctx| IdentifyActor {
+                tx_app_message,
+                api_token,
+            }
         }
     });
     SystemRegistry::set(addr);
 
     let addr = TaxaLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
+        let api_token = api_token.clone();
         {
             |_ctx| TaxaLoaderActor {
                 tx_app_message,
                 loaded: Default::default(),
                 to_load: Default::default(),
+                api_token,
             }
         }
     });
