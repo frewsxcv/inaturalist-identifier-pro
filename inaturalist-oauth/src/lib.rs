@@ -9,16 +9,11 @@ use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 use url::Url;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 struct MyConfig {
     api_token: Option<String>,
 }
 
-impl Default for MyConfig {
-    fn default() -> Self {
-        Self { api_token: None }
-    }
-}
 
 pub fn get_api_token() -> Result<String, Box<dyn std::error::Error>> {
     let mut cfg: MyConfig = confy::load("inaturalist-fetch", None)?;
