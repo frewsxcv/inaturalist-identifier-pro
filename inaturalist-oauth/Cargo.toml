@@ -11,7 +11,4 @@ url = "2.3.1"
 confy = "0.5.1"
 opener = "0.6"
 reqwest = { version = "0.12", features = ["json"] }
-
-[[bin]]
-name = "inaturalist-oauth"
-path = "src/main.rs"
+log = "0.4.20"

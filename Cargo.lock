@@ -2253,6 +2253,7 @@ name = "inaturalist-oauth"
 version = "0.1.0"
 dependencies = [
  "confy",
+ "log",
  "oauth2",
  "opener",
  "reqwest 0.12.23",

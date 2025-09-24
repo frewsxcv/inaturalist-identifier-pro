@@ -19,7 +19,7 @@ pub fn get_api_token() -> Result<String, Box<dyn std::error::Error>> {
     let mut cfg: MyConfig = confy::load("inaturalist-fetch", None)?;
 
     if let Some(token) = &cfg.api_token {
-        println!("Using existing API token: {}", token);
+        log::info!("Using existing API token: {token}");
         return Ok(token.clone());
     }
 
@@ -42,7 +42,7 @@ pub fn get_api_token() -> Result<String, Box<dyn std::error::Error>> {
         .set_pkce_challenge(pkce_challenge)
         .url();
 
-    println!("Opening browser to: {}", auth_url);
+    log::info!("Opening browser to: {auth_url}");
     opener::open(auth_url.to_string())?;
 
     let listener = TcpListener::bind("127.0.0.1:8080")?;
@@ -88,7 +88,7 @@ pub fn get_api_token() -> Result<String, Box<dyn std::error::Error>> {
 
     let token_string = token_response.access_token().secret();
 
-    println!("OAuth access token: {}", token_string);
+    log::info!("OAuth access token: {token_string}");
 
     let mut headers = HeaderMap::new();
     headers.append(
@@ -106,7 +106,7 @@ pub fn get_api_token() -> Result<String, Box<dyn std::error::Error>> {
     .unwrap();
 
     let response: ApiTokenResponse = serde_json::from_slice(&response.body).unwrap();
-    println!("OAuth API token: {}", response.api_token);
+    log::info!("OAuth API token: {}", response.api_token);
     cfg.api_token = Some(response.api_token.clone());
     confy::store("inaturalist-fetch", None, cfg)?;
     Ok(response.api_token)
