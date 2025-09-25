@@ -75,7 +75,7 @@ impl Authenticator {
     /// After the user authorizes the application, it completes the OAuth2 flow,
     /// obtains an access token, and then exchanges it for a long-lived API token.
     pub async fn get_api_token(self) -> Result<TokenDetails, Box<dyn std::error::Error>> {
-        let listener = TcpListener::bind(format!("127.0.0.1:{}", self.port))?;
+        let listener = TcpListener::bind(("127.0.0.1", self.port))?;
         let port = listener.local_addr()?.port();
         let redirect_url = format!("http://localhost:{}", port);
         let client = self.client(&redirect_url)?;
