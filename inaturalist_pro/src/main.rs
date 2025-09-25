@@ -9,6 +9,7 @@ use std::{error, sync};
 use taxa_loader_actor::TaxaLoaderActor;
 use serde::{Deserialize, Serialize};
 use taxon_tree_builder_actor::TaxonTreeBuilderActor;
+use inaturalist_oauth::Authenticator;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct MyConfig {
@@ -70,12 +71,16 @@ type CurOperation = operations::TopImageScore;
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let cfg: MyConfig = confy::load("inaturalist-fetch", None)?;
+    let mut cfg: MyConfig = confy::load("inaturalist-fetch", None)?;
     let api_token = if let Some(token) = cfg.api_token {
         token
     } else {
-        println!("API token not found. Please run the inaturalist-fetch binary to authenticate.");
-        return Ok(());
+        let client_id = "h_gk-W1QMcTwTAH4pmo3TEitkJzeeZphpsj7TM_yq18".to_string();
+        let client_secret = "RLRDkivCGzGMGqWrV4WHIA7NJ7CqL0nhQ5n9lbIipCw".to_string();
+        let token = Authenticator::new(client_id, client_secret).get_api_token()?;
+        cfg.api_token = Some(token.clone());
+        confy::store("inaturalist-fetch", None, cfg)?;
+        token
     };
 
     let grid = GeohashGrid::from_rect(places::nyc().clone(), 4);
