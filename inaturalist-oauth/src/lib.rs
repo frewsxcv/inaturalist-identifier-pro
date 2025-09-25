@@ -19,7 +19,7 @@
 //!     Ok(())
 //! }
 //! ```
-use chrono::{DateTime, Utc};
+use std::time::{Duration, SystemTime};
 use oauth2::basic::BasicClient;
 use oauth2::http::{HeaderMap, HeaderValue, Method};
 use oauth2::{
@@ -34,7 +34,7 @@ use url::Url;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenDetails {
     pub api_token: String,
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: SystemTime,
 }
 
 /// Handles the iNaturalist OAuth2 flow to obtain an API token.
@@ -98,7 +98,7 @@ impl Authenticator {
             .request_async(oauth2::reqwest::async_http_client)
             .await?;
 
-        let expires_at = Utc::now() + chrono::Duration::hours(24);
+        let expires_at = SystemTime::now() + Duration::from_secs(24 * 60 * 60);
 
         let token_string = token_response.access_token().secret();
 

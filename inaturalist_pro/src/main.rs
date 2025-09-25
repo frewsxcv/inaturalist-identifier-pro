@@ -71,7 +71,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let authenticator = Authenticator::new(client_id, client_secret);
 
     let token = if let Some(token) = cfg.token {
-        if token.expires_at < chrono::Utc::now() {
+        if token.expires_at < std::time::SystemTime::now() {
             let new_token = authenticator.get_api_token().await?;
             cfg.token = Some(new_token.clone());
             confy::store("inaturalist-fetch", None, cfg.clone())?;
