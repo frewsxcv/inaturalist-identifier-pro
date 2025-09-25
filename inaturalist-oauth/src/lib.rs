@@ -19,7 +19,6 @@
 //!     Ok(())
 //! }
 //! ```
-use std::time::{Duration, SystemTime};
 use oauth2::basic::BasicClient;
 use oauth2::http::{HeaderMap, HeaderValue, Method};
 use oauth2::{
@@ -27,8 +26,9 @@ use oauth2::{
     TokenResponse, TokenUrl,
 };
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{Read, Write};
 use std::net::TcpListener;
+use std::time::{Duration, SystemTime};
 use url::Url;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,28 +120,22 @@ impl Authenticator {
         for stream in listener.incoming() {
             match stream {
                 Ok(mut stream) => {
-                    let mut reader = BufReader::new(&stream);
-                    let mut request_line = String::new();
-                    if let Err(e) = reader.read_line(&mut request_line) {
-                        log::error!("Failed to read request line: {e}");
-                        continue;
-                    }
+                    let mut buffer = [0; 1024];
+                    stream.read(&mut buffer)?;
 
-                    let redirect_url = match request_line.split_whitespace().nth(1) {
-                        Some(url) => url,
+                    let mut headers = [httparse::EMPTY_HEADER; 16];
+                    let mut req = httparse::Request::new(&mut headers);
+                    req.parse(&buffer)?;
+
+                    let path = match req.path {
+                        Some(path) => path,
                         None => {
-                            log::error!("Malformed request line: {request_line}");
+                            log::error!("Malformed request: no path");
                             continue;
                         }
                     };
 
-                    let url = match Url::parse(&("http://localhost".to_string() + redirect_url)) {
-                        Ok(url) => url,
-                        Err(e) => {
-                            log::error!("Failed to parse redirect URL: {e}");
-                            continue;
-                        }
-                    };
+                    let url = Url::parse(&format!("http://localhost{path}"))?;
 
                     if let Some(code_pair) = url.query_pairs().find(|pair| {
                         let &(ref key, _) = pair;

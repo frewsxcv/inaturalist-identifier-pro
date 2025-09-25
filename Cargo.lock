@@ -2253,6 +2253,7 @@ dependencies = [
 name = "inaturalist-oauth"
 version = "0.1.0"
 dependencies = [
+ "httparse",
  "log",
  "oauth2",
  "opener",
