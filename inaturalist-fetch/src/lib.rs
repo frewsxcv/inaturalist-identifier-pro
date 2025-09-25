@@ -5,6 +5,7 @@ use std::{fmt, pin, sync};
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
+/// Returns a configuration for the iNaturalist API client.
 pub fn get_inaturalist_request_config(
     api_token: &str,
 ) -> inaturalist::apis::configuration::Configuration {
@@ -20,7 +21,10 @@ pub fn get_inaturalist_request_config(
 
 use std::sync::OnceLock;
 
+/// Global static for holding the iNaturalist rate limit quota.
 static INATURALIST_RATE_LIMIT_AMOUNT_CELL: OnceLock<governor::Quota> = OnceLock::new();
+/// Returns the iNaturalist rate limit quota, initializing it if necessary.
+/// The rate is set to 1 request every 2 seconds.
 pub fn inaturalist_rate_limit_amount() -> &'static governor::Quota {
     INATURALIST_RATE_LIMIT_AMOUNT_CELL
         .get_or_init(|| governor::Quota::with_period(std::time::Duration::from_secs(2)).unwrap())
@@ -32,7 +36,9 @@ type RateLimiter = governor::RateLimiter<
     governor::clock::DefaultClock,
 >;
 
+/// Global static for holding the iNaturalist rate limiter.
 static INATURALIST_RATE_LIMITER_CELL: OnceLock<RateLimiter> = OnceLock::new();
+/// Returns the iNaturalist rate limiter, initializing it if necessary.
 pub fn inaturalist_rate_limiter() -> &'static RateLimiter {
     INATURALIST_RATE_LIMITER_CELL
         .get_or_init(|| governor::RateLimiter::direct(*inaturalist_rate_limit_amount()))
@@ -46,6 +52,20 @@ const MAX_RESULTS: i32 = 10_000;
 
 const MAX_RESULTS_PER_PAGE: u32 = 200;
 
+/// Creates an iterator that subdivides a rectangle until the number of
+/// iNaturalist observations within it is less than `MAX_RESULTS`.
+///
+/// This is necessary because the iNaturalist API will not return more than
+/// 10,000 results for a given query.
+///
+/// The subdivision logic is as follows:
+///
+/// 1.  Check the number of observations in the current rectangle.
+/// 2.  If the number of observations is less than `MAX_RESULTS`, yield the
+///     rectangle.
+/// 3.  If the number of observations is greater than or equal to `MAX_RESULTS`,
+///     split the rectangle in half and recursively call this function on each
+///     half.
 pub fn subdivide_rect_iter(
     rect: Rect,
     mut request: inaturalist::apis::observations_api::ObservationsGetParams,
@@ -105,6 +125,10 @@ pub fn subdivide_rect_iter(
     })
 }
 
+/// Fetches iNaturalist observations for a given rectangle.
+///
+/// This function handles pagination and a soft limit on the number of results to fetch.
+/// The `on_observation` callback is called for each observation that is fetched.
 pub async fn fetch(
     rect: Rect,
     on_observation: impl Fn(inaturalist::models::Observation),
@@ -162,6 +186,7 @@ pub async fn fetch(
     Ok(())
 }
 
+/// Builds a set of parameters for the iNaturalist observations API.
 fn build_params(
     rect: Rect,
     page: u32,
@@ -272,6 +297,9 @@ fn build_params(
     }
 }
 
+/// Merges two sets of parameters for the iNaturalist observations API.
+///
+/// The values in `params1` take precedence over the values in `params2`.
 fn merge_params(
     params1: inaturalist::apis::observations_api::ObservationsGetParams,
     params2: inaturalist::apis::observations_api::ObservationsGetParams,
@@ -389,6 +417,7 @@ fn merge_params(
     }
 }
 
+/// Fetches taxa from the iNaturalist API by their IDs.
 pub async fn fetch_taxa(
     taxa_ids: Vec<i32>,
     api_token: &str,
@@ -411,9 +440,13 @@ pub async fn fetch_taxa(
 }
 
 #[derive(Debug)]
+/// An error that can occur when fetching computer vision observation scores.
 pub enum FetchComputerVisionError {
+    /// The request was not authorized.
     Unauthorized,
+    /// An error occurred while serializing or deserializing data.
     Serde(serde_json::Error, String),
+    /// An error occurred while making the request.
     Reqwest(reqwest::Error),
 }
 
@@ -440,10 +473,15 @@ impl From<reqwest::Error> for FetchComputerVisionError {
 }
 
 #[derive(Debug, serde::Deserialize)]
+/// A response from the iNaturalist computer vision API for observation scores.
 pub struct ComputerVisionObservationScoreResponse {
+    /// The total number of results.
     pub total_results: usize,
+    /// The current page number.
     pub page: usize,
+    /// The number of results per page.
     pub per_page: usize,
+    /// The results for the current page.
     pub results: Vec<ComputerVisionObservationScore>,
 }
 
@@ -457,6 +495,7 @@ pub struct ComputerVisionObservationScore {
     pub taxon: inaturalist::models::ObservationTaxon,
 }
 
+/// Fetches computer vision observation scores for a given observation.
 pub async fn fetch_computer_vision_observation_scores(
     observation: &inaturalist::models::Observation,
     api_token: &str,
@@ -498,6 +537,7 @@ pub async fn fetch_computer_vision_observation_scores(
     }
 }
 
+/// Creates an identification for an observation on iNaturalist.
 pub async fn identify(
     observation_id: i32,
     taxon_id: i32,
