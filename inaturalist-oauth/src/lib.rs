@@ -90,46 +90,13 @@ impl Authenticator {
         log::info!("Opening browser to: {auth_url}");
         opener::open(auth_url.to_string())?;
 
-        let mut code: Option<AuthorizationCode> = None;
-        for stream in listener.incoming() {
-            if let Ok(mut stream) = stream {
-                {
-                    let mut reader = BufReader::new(&stream);
-                    let mut request_line = String::new();
-                    reader.read_line(&mut request_line).unwrap();
-
-                    let redirect_url = request_line.split_whitespace().nth(1).unwrap();
-                    let url = Url::parse(&("http://localhost".to_string() + redirect_url)).unwrap();
-
-                    let code_pair = url
-                        .query_pairs()
-                        .find(|pair| {
-                            let &(ref key, _) = pair;
-                            key == "code"
-                        })
-                        .unwrap();
-
-                    let (_, value) = code_pair;
-                    code = Some(AuthorizationCode::new(value.into_owned()));
-                }
-
-                let message = "<h1>Success!</h1><p>You can close this window now.</p>";
-                let response = format!(
-                    "HTTP/1.1 200 OK\r\ncontent-length: {}\r\n\r\n{}",
-                    message.len(),
-                    message
-                );
-                stream.write_all(response.as_bytes()).unwrap();
-                break;
-            }
-        }
+        let code = self.listen_for_code(listener)?;
 
         let token_response = client
-            .exchange_code(code.unwrap())
+            .exchange_code(code)
             .set_pkce_verifier(pkce_verifier)
             .request_async(oauth2::reqwest::async_http_client)
-            .await
-            .unwrap();
+            .await?;
 
         let expires_at = Utc::now() + chrono::Duration::hours(24);
 
@@ -137,28 +104,102 @@ impl Authenticator {
 
         log::info!("OAuth access token: {token_string}");
 
-        let mut headers = HeaderMap::new();
-        headers.append(
-            "Authorization",
-            HeaderValue::from_str(&format!("Bearer {token_string}")).unwrap(),
-        );
-        let response = oauth2::reqwest::async_http_client(oauth2::HttpRequest {
-            body: vec![],
-            headers,
-            url: "https://www.inaturalist.org/users/api_token"
-                .try_into()
-                .unwrap(),
-            method: Method::GET,
-        })
-        .await
-        .unwrap();
+        let response = self.fetch_api_token(token_string).await?;
 
-        let response: ApiTokenResponse = serde_json::from_slice(&response.body).unwrap();
         log::info!("OAuth API token: {}", response.api_token);
         Ok(TokenDetails {
             api_token: response.api_token,
             expires_at,
         })
+    }
+
+    fn listen_for_code(
+        &self,
+        listener: TcpListener,
+    ) -> Result<AuthorizationCode, Box<dyn std::error::Error>> {
+        for stream in listener.incoming() {
+            match stream {
+                Ok(mut stream) => {
+                    let mut reader = BufReader::new(&stream);
+                    let mut request_line = String::new();
+                    if let Err(e) = reader.read_line(&mut request_line) {
+                        log::error!("Failed to read request line: {e}");
+                        continue;
+                    }
+
+                    let redirect_url = match request_line.split_whitespace().nth(1) {
+                        Some(url) => url,
+                        None => {
+                            log::error!("Malformed request line: {request_line}");
+                            continue;
+                        }
+                    };
+
+                    let url = match Url::parse(&("http://localhost".to_string() + redirect_url)) {
+                        Ok(url) => url,
+                        Err(e) => {
+                            log::error!("Failed to parse redirect URL: {e}");
+                            continue;
+                        }
+                    };
+
+                    if let Some(code_pair) = url.query_pairs().find(|pair| {
+                        let &(ref key, _) = pair;
+                        key == "code"
+                    }) {
+                        let (_, value) = code_pair;
+                        let code = AuthorizationCode::new(value.into_owned());
+
+                        let message = "<h1>Success!</h1><p>You can close this window now.</p>";
+                        let response = format!(
+                            "HTTP/1.1 200 OK\r\ncontent-length: {}\r\n\r\n{}",
+                            message.len(),
+                            message
+                        );
+                        if let Err(e) = stream.write_all(response.as_bytes()) {
+                            log::error!("Failed to write response: {e}");
+                        }
+                        return Ok(code);
+                    } else {
+                        log::error!("URL did not contain 'code' parameter: {url}");
+                        let message =
+                            "<h1>Error!</h1><p>Could not get authorization code. Please try again.</p>";
+                        let response = format!(
+                            "HTTP/1.1 400 Bad Request\r\ncontent-length: {}\r\n\r\n{}",
+                            message.len(),
+                            message
+                        );
+                        if let Err(e) = stream.write_all(response.as_bytes()) {
+                            log::error!("Failed to write error response: {e}");
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("Failed to accept connection: {e}");
+                }
+            }
+        }
+        Err("Server closed before receiving authorization code".into())
+    }
+
+    async fn fetch_api_token(
+        &self,
+        token_string: &str,
+    ) -> Result<ApiTokenResponse, Box<dyn std::error::Error>> {
+        let mut headers = HeaderMap::new();
+        headers.append(
+            "Authorization",
+            HeaderValue::from_str(&format!("Bearer {token_string}"))?,
+        );
+        let response = oauth2::reqwest::async_http_client(oauth2::HttpRequest {
+            body: vec![],
+            headers,
+            url: "https://www.inaturalist.org/users/api_token".try_into()?,
+            method: Method::GET,
+        })
+        .await?;
+
+        Ok(serde_json::from_slice(&response.body)?)
     }
 
     fn client(&self, redirect_url: &str) -> Result<BasicClient, Box<dyn std::error::Error>> {
