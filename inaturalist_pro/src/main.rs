@@ -134,11 +134,10 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     SystemRegistry::set(addr);
 
     let addr = IdentifyActor::start_in_arbiter(&Arbiter::new().handle(), {
-        let tx_app_message = tx_app_message.clone();
+        let _tx_app_message = tx_app_message.clone();
         let api_token = api_token.clone();
         {
             |_ctx| IdentifyActor {
-                tx_app_message,
                 api_token,
             }
         }

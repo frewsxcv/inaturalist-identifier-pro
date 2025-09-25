@@ -1,9 +1,6 @@
-use crate::AppMessage;
 use actix::prelude::*;
-use tokio::sync::mpsc::UnboundedSender;
 
 pub struct IdentifyActor {
-    pub tx_app_message: UnboundedSender<AppMessage>,
     pub api_token: String,
 }
 

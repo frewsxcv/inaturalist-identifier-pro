@@ -1,7 +1,9 @@
 use crate::Rect;
 use std::sync::OnceLock;
 
+#[allow(dead_code)]
 static INDIAN_LAKE_CELL: OnceLock<Rect> = OnceLock::new();
+#[allow(dead_code)]
 pub fn indian_lake() -> &'static Rect {
     INDIAN_LAKE_CELL.get_or_init(|| {
         geo::Rect::new(
@@ -17,7 +19,9 @@ pub fn indian_lake() -> &'static Rect {
     })
 }
 
+#[allow(dead_code)]
 static HARRIMAN_STATE_PARK_CELL: OnceLock<Rect> = OnceLock::new();
+#[allow(dead_code)]
 pub fn harriman_state_park() -> &'static Rect {
     HARRIMAN_STATE_PARK_CELL.get_or_init(|| {
         geo::Rect::new(
@@ -33,7 +37,9 @@ pub fn harriman_state_park() -> &'static Rect {
     })
 }
 
+#[allow(dead_code)]
 static BROOKLYN_CELL: OnceLock<Rect> = OnceLock::new();
+#[allow(dead_code)]
 pub fn brooklyn() -> &'static Rect {
     BROOKLYN_CELL.get_or_init(|| {
         geo::Rect::new(
@@ -49,7 +55,9 @@ pub fn brooklyn() -> &'static Rect {
     })
 }
 
+#[allow(dead_code)]
 static PROSPECT_PARK_CELL: OnceLock<Rect> = OnceLock::new();
+#[allow(dead_code)]
 pub fn prospect_park() -> &'static Rect {
     PROSPECT_PARK_CELL.get_or_init(|| {
         geo::Rect::new(

@@ -127,7 +127,6 @@ pub trait Operation {
     //     _observations: &crate::Observations,
     // ) {
     // }
-    fn finish(&mut self, _tx_app_message: tokio::sync::mpsc::Sender<crate::AppMessage>) {}
 }
 
 pub struct NoOp(pub Vec<Observation>);
@@ -145,6 +144,7 @@ impl Operation for NoOp {
 }
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct TopImageScore(pub Vec<Observation>);
 
 impl Operation for TopImageScore {
