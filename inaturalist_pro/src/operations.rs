@@ -1,6 +1,8 @@
 use inaturalist::models::Observation;
 use std::error;
 
+use inaturalist_fetch::FetchComputerVisionError;
+
 use crate::AppMessage;
 
 // const PLANTAE_ID: u32 = 47126;
@@ -266,12 +268,29 @@ impl Operation for TopImageScore {
                 &api_token,
             )
             .await;
-            tx_app_message
-                .send(AppMessage::ComputerVisionScoreLoaded(
-                    observation_id,
-                    results.results,
-                ))
-                .unwrap();
+            match results {
+                Ok(scores) => {
+                    tx_app_message
+                        .send(AppMessage::ComputerVisionScoreLoaded(
+                            observation_id,
+                            scores.results,
+                        ))
+                        .unwrap();
+                }
+                Err(FetchComputerVisionError::Unauthorized) => {
+                    tracing::error!(
+                        "API token expired. Could not fetch computer vision scores for observation {}",
+                        observation_id
+                    );
+                }
+                Err(e) => {
+                    tracing::error!(
+                        "Could not fetch computer vision scores for observation {}: {}",
+                        observation_id,
+                        e
+                    );
+                }
+            }
         });
         Ok(())
     }

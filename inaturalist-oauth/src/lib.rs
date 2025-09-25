@@ -19,16 +19,23 @@
 //!     Ok(())
 //! }
 //! ```
+use chrono::{DateTime, Utc};
 use oauth2::basic::BasicClient;
 use oauth2::http::{HeaderMap, HeaderValue, Method};
 use oauth2::{
-    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge,
-    RedirectUrl, TokenResponse, TokenUrl,
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl,
+    TokenResponse, TokenUrl,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
 use url::Url;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenDetails {
+    pub api_token: String,
+    pub expires_at: DateTime<Utc>,
+}
 
 /// Handles the iNaturalist OAuth2 flow to obtain an API token.
 ///
@@ -67,17 +74,11 @@ impl Authenticator {
     /// This method opens the user's web browser to the iNaturalist authorization page.
     /// After the user authorizes the application, it completes the OAuth2 flow,
     /// obtains an access token, and then exchanges it for a long-lived API token.
-    pub fn get_api_token(self) -> Result<String, Box<dyn std::error::Error>> {
-        let redirect_url = format!("http://localhost:{}", self.port);
-        let client = BasicClient::new(
-            self.client_id,
-            Some(self.client_secret),
-            AuthUrl::new("https://www.inaturalist.org/oauth/authorize".to_string())?,
-            Some(TokenUrl::new(
-                "https://www.inaturalist.org/oauth/token".to_string(),
-            )?),
-        )
-        .set_redirect_uri(RedirectUrl::new(redirect_url)?);
+    pub async fn get_api_token(self) -> Result<TokenDetails, Box<dyn std::error::Error>> {
+        let listener = TcpListener::bind(format!("127.0.0.1:{}", self.port))?;
+        let port = listener.local_addr()?.port();
+        let redirect_url = format!("http://localhost:{}", port);
+        let client = self.client(&redirect_url)?;
 
         let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
 
@@ -89,7 +90,6 @@ impl Authenticator {
         log::info!("Opening browser to: {auth_url}");
         opener::open(auth_url.to_string())?;
 
-        let listener = TcpListener::bind(format!("127.0.0.1:{}", self.port))?;
         let mut code: Option<AuthorizationCode> = None;
         for stream in listener.incoming() {
             if let Ok(mut stream) = stream {
@@ -127,8 +127,11 @@ impl Authenticator {
         let token_response = client
             .exchange_code(code.unwrap())
             .set_pkce_verifier(pkce_verifier)
-            .request(oauth2::reqwest::http_client)
+            .request_async(oauth2::reqwest::async_http_client)
+            .await
             .unwrap();
+
+        let expires_at = Utc::now() + chrono::Duration::hours(24);
 
         let token_string = token_response.access_token().secret();
 
@@ -139,7 +142,7 @@ impl Authenticator {
             "Authorization",
             HeaderValue::from_str(&format!("Bearer {token_string}")).unwrap(),
         );
-        let response = oauth2::reqwest::http_client(oauth2::HttpRequest {
+        let response = oauth2::reqwest::async_http_client(oauth2::HttpRequest {
             body: vec![],
             headers,
             url: "https://www.inaturalist.org/users/api_token"
@@ -147,11 +150,27 @@ impl Authenticator {
                 .unwrap(),
             method: Method::GET,
         })
+        .await
         .unwrap();
 
         let response: ApiTokenResponse = serde_json::from_slice(&response.body).unwrap();
         log::info!("OAuth API token: {}", response.api_token);
-        Ok(response.api_token)
+        Ok(TokenDetails {
+            api_token: response.api_token,
+            expires_at,
+        })
+    }
+
+    fn client(&self, redirect_url: &str) -> Result<BasicClient, Box<dyn std::error::Error>> {
+        Ok(BasicClient::new(
+            self.client_id.clone(),
+            Some(self.client_secret.clone()),
+            AuthUrl::new("https://www.inaturalist.org/oauth/authorize".to_string())?,
+            Some(TokenUrl::new(
+                "https://www.inaturalist.org/oauth/token".to_string(),
+            )?),
+        )
+        .set_redirect_uri(RedirectUrl::new(redirect_url.to_string())?))
     }
 }
 

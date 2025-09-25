@@ -3,23 +3,17 @@ use geohash_ext::GeohashGrid;
 use identify_actor::IdentifyActor;
 use image_store_actor::ImageStoreActor;
 use inaturalist::models::{Observation, ShowTaxon};
+use inaturalist_oauth::{Authenticator, TokenDetails};
 use observation_loader_actor::ObservationLoaderActor;
 use observation_processor_actor::ObservationProcessorActor;
+use serde::{Deserialize, Serialize};
 use std::{error, sync};
 use taxa_loader_actor::TaxaLoaderActor;
-use serde::{Deserialize, Serialize};
 use taxon_tree_builder_actor::TaxonTreeBuilderActor;
-use inaturalist_oauth::Authenticator;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 struct MyConfig {
-    api_token: Option<String>,
-}
-
-impl Default for MyConfig {
-    fn default() -> Self {
-        Self { api_token: None }
-    }
+    token: Option<TokenDetails>,
 }
 
 mod app;
@@ -72,16 +66,26 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
 
     let mut cfg: MyConfig = confy::load("inaturalist-fetch", None)?;
-    let api_token = if let Some(token) = cfg.api_token {
-        token
+    let client_id = "h_gk-W1QMcTwTAH4pmo3TEitkJzeeZphpsj7TM_yq18".to_string();
+    let client_secret = "RLRDkivCGzGMGqWrV4WHIA7NJ7CqL0nhQ5n9lbIipCw".to_string();
+    let authenticator = Authenticator::new(client_id, client_secret);
+
+    let token = if let Some(token) = cfg.token {
+        if token.expires_at < chrono::Utc::now() {
+            let new_token = authenticator.get_api_token().await?;
+            cfg.token = Some(new_token.clone());
+            confy::store("inaturalist-fetch", None, cfg.clone())?;
+            new_token
+        } else {
+            token
+        }
     } else {
-        let client_id = "h_gk-W1QMcTwTAH4pmo3TEitkJzeeZphpsj7TM_yq18".to_string();
-        let client_secret = "RLRDkivCGzGMGqWrV4WHIA7NJ7CqL0nhQ5n9lbIipCw".to_string();
-        let token = Authenticator::new(client_id, client_secret).get_api_token()?;
-        cfg.api_token = Some(token.clone());
-        confy::store("inaturalist-fetch", None, cfg)?;
+        let token = authenticator.get_api_token().await?;
+        cfg.token = Some(token.clone());
+        confy::store("inaturalist-fetch", None, cfg.clone())?;
         token
     };
+    let api_token = token.api_token;
 
     let grid = GeohashGrid::from_rect(places::nyc().clone(), 4);
 

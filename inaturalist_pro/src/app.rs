@@ -77,7 +77,9 @@ impl eframe::App for App {
                     self.load_image_in_background_thread(observation);
                 }
                 crate::AppMessage::ComputerVisionScoreLoaded(observation_id, scores) => {
-                    let Some(observation_index) = self.find_index_for_observation_id(observation_id) else {
+                    let Some(observation_index) =
+                        self.find_index_for_observation_id(observation_id)
+                    else {
                         // TODO: Log error here
                         return;
                     };
@@ -100,8 +102,9 @@ impl eframe::App for App {
                     }
                 }
                 crate::AppMessage::SkipCurrentObservation => {
-                    let Some(current_observation_index) = self.find_index_for_current_observation() else {
-                        return
+                    let Some(current_observation_index) = self.find_index_for_current_observation()
+                    else {
+                        return;
                     };
                     self.results.remove(current_observation_index);
                     self.select_new_observation();
@@ -130,12 +133,15 @@ impl eframe::App for App {
         egui::CentralPanel::default().show(ctx, |ui| {
             let rect = ui.max_rect();
             egui::ScrollArea::vertical().show(ui, |ui| {
-                let Some(current_observation_index) = self.find_index_for_current_observation() else {
-                    return
+                let Some(current_observation_index) = self.find_index_for_current_observation()
+                else {
+                    return;
                 };
                 let query_result = &self.results[current_observation_index];
                 if ui.button("Skip observation").clicked() {
-                    self.tx_app_message.send(crate::AppMessage::SkipCurrentObservation).unwrap();
+                    self.tx_app_message
+                        .send(crate::AppMessage::SkipCurrentObservation)
+                        .unwrap();
                 }
                 ui.horizontal(|ui| {
                     if let Some((url, image)) = self
@@ -146,8 +152,7 @@ impl eframe::App for App {
                     {
                         const MAX_WIDTH: f32 = 500.;
                         let scale = MAX_WIDTH / (image.width() as f32);
-                        let image_size =
-                            egui::Vec2::new(MAX_WIDTH, image.height() as f32 * scale);
+                        let image_size = egui::Vec2::new(MAX_WIDTH, image.height() as f32 * scale);
                         ui.add_sized(image_size, |ui: &mut egui::Ui| {
                             if ui.max_rect().intersects(rect) {
                                 let response = image.show_size(ui, image_size);
@@ -182,7 +187,9 @@ impl eframe::App for App {
                                     });
                                 }
                                 if identified {
-                                    self.tx_app_message.send(crate::AppMessage::SkipCurrentObservation).unwrap();
+                                    self.tx_app_message
+                                        .send(crate::AppMessage::SkipCurrentObservation)
+                                        .unwrap();
                                 }
                             }
                         });

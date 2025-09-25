@@ -1,7 +1,7 @@
 use geo_ext::Halve;
 use inaturalist::apis::configuration::ApiKey;
 use std::future::Future;
-use std::{pin::Pin, sync};
+use std::{fmt, pin, sync};
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
@@ -56,7 +56,7 @@ pub fn subdivide_rect_iter(
         inaturalist::apis::Error<inaturalist::apis::observations_api::ObservationsGetError>,
     >,
     (),
-    Pin<Box<dyn Future<Output = ()> + Send>>,
+    pin::Pin<Box<dyn Future<Output = ()> + Send>>,
 > {
     request.only_id = Some(true);
     tracing::info!("rect size: {:?}", rect);
@@ -410,6 +410,35 @@ pub async fn fetch_taxa(
     Ok(taxa)
 }
 
+#[derive(Debug)]
+pub enum FetchComputerVisionError {
+    Unauthorized,
+    Serde(serde_json::Error, String),
+    Reqwest(reqwest::Error),
+}
+
+impl fmt::Display for FetchComputerVisionError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            FetchComputerVisionError::Unauthorized => {
+                write!(f, "Unauthorized (likely expired token)")
+            }
+            FetchComputerVisionError::Serde(e, text) => {
+                write!(f, "JSON deserialization error: {e} for response: {text}")
+            }
+            FetchComputerVisionError::Reqwest(e) => write!(f, "Request error: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for FetchComputerVisionError {}
+
+impl From<reqwest::Error> for FetchComputerVisionError {
+    fn from(err: reqwest::Error) -> FetchComputerVisionError {
+        FetchComputerVisionError::Reqwest(err)
+    }
+}
+
 #[derive(Debug, serde::Deserialize)]
 pub struct ComputerVisionObservationScoreResponse {
     pub total_results: usize,
@@ -431,7 +460,7 @@ pub struct ComputerVisionObservationScore {
 pub async fn fetch_computer_vision_observation_scores(
     observation: &inaturalist::models::Observation,
     api_token: &str,
-) -> ComputerVisionObservationScoreResponse {
+) -> Result<ComputerVisionObservationScoreResponse, FetchComputerVisionError> {
     let observation_id = observation.id.unwrap();
     tracing::info!("Fetch observation score (observation ID: {observation_id}");
     let url =
@@ -441,18 +470,30 @@ pub async fn fetch_computer_vision_observation_scores(
         .get(url)
         .header("Authorization", api_token)
         .send()
-        .await
-        .unwrap();
-    let response_text = response.text().await.unwrap();
+        .await?;
+
+    if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+        let response_text = response.text().await?;
+        tracing::error!(
+            "Unauthorized fetching computer vision scores (observation ID = {}). Response: {:?}",
+            observation.id.unwrap(),
+            response_text
+        );
+        return Err(FetchComputerVisionError::Unauthorized);
+    }
+
+    let response = response.error_for_status()?;
+
+    let response_text = response.text().await?;
     match serde_json::from_str(&response_text) {
-        Ok(j) => j,
-        Err(_) => {
+        Ok(j) => Ok(j),
+        Err(e) => {
             tracing::error!(
-                "Could not fetch computer vision observation scores (observation ID = {}). Response: {:?}",
+                "Could not deserialize computer vision observation scores (observation ID = {}). Response: {:?}",
                 observation.id.unwrap(),
                 response_text
             );
-            panic!("Bailing...");
+            Err(FetchComputerVisionError::Serde(e, response_text))
         }
     }
 }
