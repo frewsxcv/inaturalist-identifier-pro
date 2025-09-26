@@ -18,7 +18,7 @@ geojson = { version = "0.24", features = ["geo-types"] }
 image = { version = "0.24", features = ["jpeg", "png"] }
 inaturalist= "0.7"
 inaturalist-fetch = { path = "../inaturalist-fetch" }
-inaturalist-oauth = { path = "../inaturalist-oauth" }
+inaturalist-oauth = "0.1"
 ordered-float = { version = "3", features = ["serde"] }
 reqwest = "0.12"
 serde = { version = "1", features = ["derive"] }

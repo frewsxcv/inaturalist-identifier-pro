@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "geo-ext",
-    "inaturalist-fetch", "inaturalist-oauth",
+    "inaturalist-fetch",
     "inaturalist_pro",
 ]
 resolver = "2"

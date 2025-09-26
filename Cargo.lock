@@ -2252,6 +2252,8 @@ dependencies = [
 [[package]]
 name = "inaturalist-oauth"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5ae7bf70b5951712eb3b12726c4cf9120eb37cc26bb4b2a62298bfdee6901f1"
 dependencies = [
  "httparse",
  "log",
