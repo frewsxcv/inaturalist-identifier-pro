@@ -65,7 +65,7 @@ type CurOperation = operations::TopImageScore;
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let mut cfg: MyConfig = confy::load("inaturalist-fetch", None)?;
+    let mut cfg: MyConfig = confy::load("inaturalist-identifier-pro", None)?;
     let client_id = "h_gk-W1QMcTwTAH4pmo3TEitkJzeeZphpsj7TM_yq18".to_string();
     let client_secret = "RLRDkivCGzGMGqWrV4WHIA7NJ7CqL0nhQ5n9lbIipCw".to_string();
     let authenticator = Authenticator::new(client_id, client_secret);
@@ -137,9 +137,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         let _tx_app_message = tx_app_message.clone();
         let api_token = api_token.clone();
         {
-            |_ctx| IdentifyActor {
-                api_token,
-            }
+            |_ctx| IdentifyActor { api_token }
         }
     });
     SystemRegistry::set(addr);
