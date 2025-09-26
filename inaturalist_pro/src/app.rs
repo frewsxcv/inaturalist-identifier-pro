@@ -122,15 +122,57 @@ impl eframe::App for App {
             });
         });
 
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Side Panel");
-
-            ui.horizontal(|ui| {
-                ui.label(format!("Loaded observations: {}", self.results.len()));
+        egui::SidePanel::left("observation_gallery").show(ctx, |ui| {
+            ui.heading("Observation Gallery");
+            ui.label(format!("Loaded observations: {}", self.results.len()));
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for result in &self.results {
+                    let Some(observation_id) = result.observation.id else {
+                        continue;
+                    };
+                    if let Some((_url, image)) =
+                        self.image_store.read().unwrap().load(observation_id)
+                    {
+                        let response =
+                            image.show_max_size(ui, Vec2::new(ui.available_width(), 100.0));
+                        if response.clicked() {
+                            self.current_observation_id = Some(observation_id);
+                        }
+                    } else {
+                        ui.spinner();
+                    }
+                }
             });
         });
 
+        egui::SidePanel::right("identification_panel").show(ctx, |ui| {
+            ui.heading("Identification Panel");
+            let Some(current_observation_index) = self.find_index_for_current_observation() else {
+                return;
+            };
+            let query_result = &self.results[current_observation_index];
+            if query_result.taxon_tree.0.is_empty() {
+                ui.spinner();
+            } else {
+                let mut identified = false;
+                for node in query_result.taxon_tree.0.iter() {
+                    ui.add(TaxonTreeWidget {
+                        observation: &query_result.observation,
+                        root_node: node,
+                        taxa_store: &self.taxa_store,
+                        identified: &mut identified,
+                    });
+                }
+                if identified {
+                    self.tx_app_message
+                        .send(crate::AppMessage::SkipCurrentObservation)
+                        .unwrap();
+                }
+            }
+        });
+
         egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Details Panel");
             let rect = ui.max_rect();
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let Some(current_observation_index) = self.find_index_for_current_observation()
@@ -138,65 +180,85 @@ impl eframe::App for App {
                     return;
                 };
                 let query_result = &self.results[current_observation_index];
-                if ui.button("Skip observation").clicked() {
-                    self.tx_app_message
-                        .send(crate::AppMessage::SkipCurrentObservation)
-                        .unwrap();
-                }
-                ui.horizontal(|ui| {
-                    if let Some((url, image)) = self
-                        .image_store
-                        .read()
-                        .unwrap()
-                        .load(query_result.observation.id.unwrap())
-                    {
-                        const MAX_WIDTH: f32 = 500.;
-                        let scale = MAX_WIDTH / (image.width() as f32);
-                        let image_size = egui::Vec2::new(MAX_WIDTH, image.height() as f32 * scale);
-                        ui.add_sized(image_size, |ui: &mut egui::Ui| {
-                            if ui.max_rect().intersects(rect) {
-                                let response = image.show_size(ui, image_size);
-                                if response.clicked() {
-                                    tracing::info!("Clicked the image");
-                                    ui.ctx().output_mut(|o| {
-                                        o.open_url = Some(egui::output::OpenUrl {
-                                            url: url.into(),
-                                            new_tab: true,
-                                        });
-                                    });
-                                }
-                                response
-                            } else {
-                                ui.spinner()
-                            }
+                if let Some((url, image)) = self
+                    .image_store
+                    .read()
+                    .unwrap()
+                    .load(query_result.observation.id.unwrap())
+                {
+                    let image_size =
+                        egui::Vec2::new(ui.available_width(), ui.available_height() * 0.6);
+                    let response = image.show_max_size(ui, image_size);
+                    if response.clicked() {
+                        tracing::info!("Clicked the image");
+                        ui.ctx().output_mut(|o| {
+                            o.open_url = Some(egui::output::OpenUrl {
+                                url: url.into(),
+                                new_tab: true,
+                            });
                         });
-
-                        ui.vertical(|ui| {
-                            ui.hyperlink(query_result.observation.uri.as_ref().unwrap());
-                            ui.heading("Taxon tree");
-                            if query_result.taxon_tree.0.is_empty() {
-                                ui.spinner();
-                            } else {
-                                let mut identified = false;
-                                for node in query_result.taxon_tree.0.iter() {
-                                    ui.add(TaxonTreeWidget {
-                                        observation: &query_result.observation,
-                                        root_node: node,
-                                        taxa_store: &self.taxa_store,
-                                        identified: &mut identified,
-                                    });
-                                }
-                                if identified {
-                                    self.tx_app_message
-                                        .send(crate::AppMessage::SkipCurrentObservation)
-                                        .unwrap();
-                                }
-                            }
-                        });
-                    } else {
-                        ui.spinner();
                     }
-                });
+                    ui.hyperlink(query_result.observation.uri.as_ref().unwrap());
+                    if let Some(observed_on) = &query_result.observation.observed_on_string {
+                        ui.label(format!("Observed on: {}", observed_on));
+                    }
+                    if let Some(place_guess) = &query_result.observation.place_guess {
+                        ui.label(format!("Location: {}", place_guess));
+                    }
+                    if let Some(description) = &query_result.observation.description {
+                        ui.label("Description:");
+                        egui::ScrollArea::vertical().show(ui, |ui| {
+                            ui.label(description);
+                        });
+                    }
+                } else {
+                    ui.spinner();
+                }
+                ui.separator();
+            });
+        });
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Details Panel");
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                let Some(current_observation_index) = self.find_index_for_current_observation()
+                else {
+                    return;
+                };
+                let query_result = &self.results[current_observation_index];
+                if let Some((url, image)) = self
+                    .image_store
+                    .read()
+                    .unwrap()
+                    .load(query_result.observation.id.unwrap())
+                {
+                    let image_size =
+                        egui::Vec2::new(ui.available_width(), ui.available_height() * 0.6);
+                    let response = image.show_max_size(ui, image_size);
+                    if response.clicked() {
+                        tracing::info!("Clicked the image");
+                        ui.ctx().output_mut(|o| {
+                            o.open_url = Some(egui::output::OpenUrl {
+                                url: url.into(),
+                                new_tab: true,
+                            });
+                        });
+                    }
+                    ui.hyperlink(query_result.observation.uri.as_ref().unwrap());
+                    if let Some(observed_on) = &query_result.observation.observed_on_string {
+                        ui.label(format!("Observed on: {}", observed_on));
+                    }
+                    if let Some(place_guess) = &query_result.observation.place_guess {
+                        ui.label(format!("Location: {}", place_guess));
+                    }
+                    if let Some(description) = &query_result.observation.description {
+                        ui.label("Description:");
+                        egui::ScrollArea::vertical().show(ui, |ui| {
+                            ui.label(description);
+                        });
+                    }
+                } else {
+                    ui.spinner();
+                }
                 ui.separator();
             });
         });
@@ -259,44 +321,45 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
         .show_header(ui, |ui| {
             match self.taxa_store.0.get(&self.root_node.taxon_id) {
                 Some(taxon) => {
-                    // Score square
-                    let score_color = colorous::COOL
-                        .eval_continuous(self.root_node.score.round() as f64 / MAX_SCORE);
-                    let _square_width = ui.max_rect().height();
-                    let rect_size = Vec2::new(ui.available_height(), ui.available_height());
-                    let (rect, response) = ui.allocate_exact_size(rect_size, Sense::hover());
-                    response.on_hover_text(format!(
-                        "Score: {} / {}",
-                        self.root_node.score.round(),
-                        MAX_SCORE
-                    ));
-                    let shape = egui::Shape::rect_filled(
-                        rect,
-                        egui::Rounding::default(),
-                        egui::Color32::from_rgb(score_color.r, score_color.g, score_color.b),
-                    );
-                    ui.painter().add(shape);
+                    ui.horizontal(|ui| {
+                        // Score square
+                        let score_color = colorous::COOL
+                            .eval_continuous(self.root_node.score.round() as f64 / MAX_SCORE);
+                        let rect_size = Vec2::new(ui.available_height(), ui.available_height());
+                        let (rect, response) = ui.allocate_exact_size(rect_size, Sense::hover());
+                        response.on_hover_text(format!(
+                            "Score: {} / {}",
+                            self.root_node.score.round(),
+                            MAX_SCORE
+                        ));
+                        let shape = egui::Shape::rect_filled(
+                            rect,
+                            egui::Rounding::default(),
+                            egui::Color32::from_rgb(score_color.r, score_color.g, score_color.b),
+                        );
+                        ui.painter().add(shape);
 
-                    // Identify button
-                    if ui.button("✔").clicked() {
-                        IdentifyActor::from_registry()
-                            .try_send(IdentifyMessage {
-                                observation_id: self.observation.id.unwrap(),
-                                taxon_id: taxon.id,
-                            })
-                            .unwrap();
-                        *self.identified = true;
-                    }
+                        ui.label(&taxon.name);
 
-                    ui.label(&taxon.name);
+                        // Identify button
+                        if ui.button("✔").clicked() {
+                            IdentifyActor::from_registry()
+                                .try_send(IdentifyMessage {
+                                    observation_id: self.observation.id.unwrap(),
+                                    taxon_id: taxon.id,
+                                })
+                                .unwrap();
+                            *self.identified = true;
+                        }
 
-                    ui.hyperlink_to(
-                        "🌎",
-                        format!(
-                            "https://www.inaturalist.org/taxa/{}",
-                            self.root_node.taxon_id
-                        ),
-                    );
+                        ui.hyperlink_to(
+                            "🌎",
+                            format!(
+                                "https://www.inaturalist.org/taxa/{}",
+                                self.root_node.taxon_id
+                            ),
+                        );
+                    });
                 }
                 None => {
                     ui.spinner();
