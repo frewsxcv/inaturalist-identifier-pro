@@ -1,13 +1,11 @@
 use actix::SystemService;
 use egui::{Sense, Vec2};
 use inaturalist::models::Observation;
-use std::sync;
 
 const MAX_SCORE: f64 = 100.;
 
 use crate::{
     identify_actor::{IdentifyActor, IdentifyMessage},
-    image_store_actor::{ImageStoreActor, LoadImageMessage},
     taxa_store::TaxaStore,
     taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor},
 };
@@ -19,7 +17,6 @@ pub(crate) struct App {
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<crate::AppMessage>,
     pub loaded_geohashes: usize,
     pub results: Vec<QueryResult>,
-    pub image_store: sync::Arc<sync::RwLock<crate::image_store::ImageStore>>,
     pub taxa_store: TaxaStore,
     pub current_observation_id: Option<ObservationId>,
 }
@@ -43,16 +40,11 @@ impl App {
             })
             .unwrap();
     }
-
-    fn load_image_in_background_thread(&self, observation: Box<Observation>) {
-        ImageStoreActor::from_registry()
-            .try_send(LoadImageMessage { observation })
-            .unwrap();
-    }
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui_extras::install_image_loaders(ctx);
         if let Ok(app_message) = self.rx_app_message.try_recv() {
             match app_message {
                 crate::AppMessage::Progress => {
@@ -73,8 +65,6 @@ impl eframe::App for App {
                         scores: None,
                         taxon_tree: Default::default(),
                     });
-
-                    self.load_image_in_background_thread(observation);
                 }
                 crate::AppMessage::ComputerVisionScoreLoaded(observation_id, scores) => {
                     let Some(observation_index) =
@@ -116,7 +106,7 @@ impl eframe::App for App {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Quit").clicked() {
-                        frame.close();
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
             });
@@ -127,20 +117,12 @@ impl eframe::App for App {
             ui.label(format!("Loaded observations: {}", self.results.len()));
             egui::ScrollArea::vertical().show(ui, |ui| {
                 for result in &self.results {
-                    let Some(observation_id) = result.observation.id else {
-                        continue;
-                    };
-                    if let Some((_url, image)) =
-                        self.image_store.read().unwrap().load(observation_id)
-                    {
-                        let response =
-                            image.show_max_size(ui, Vec2::new(ui.available_width(), 100.0));
-                        if response.clicked() {
-                            self.current_observation_id = Some(observation_id);
-                        }
-                    } else {
-                        ui.spinner();
-                    }
+                    ui.image(
+                        result.observation.photos.as_ref().unwrap()[0]
+                            .url
+                            .as_ref()
+                            .unwrap(),
+                    );
                 }
             });
         });
@@ -180,84 +162,33 @@ impl eframe::App for App {
                     return;
                 };
                 let query_result = &self.results[current_observation_index];
-                if let Some((url, image)) = self
-                    .image_store
-                    .read()
-                    .unwrap()
-                    .load(query_result.observation.id.unwrap())
-                {
-                    let image_size =
-                        egui::Vec2::new(ui.available_width(), ui.available_height() * 0.6);
-                    let response = image.show_max_size(ui, image_size);
-                    if response.clicked() {
-                        tracing::info!("Clicked the image");
-                        ui.ctx().output_mut(|o| {
-                            o.open_url = Some(egui::output::OpenUrl {
-                                url: url.into(),
-                                new_tab: true,
-                            });
-                        });
-                    }
-                    ui.hyperlink(query_result.observation.uri.as_ref().unwrap());
-                    if let Some(observed_on) = &query_result.observation.observed_on_string {
-                        ui.label(format!("Observed on: {}", observed_on));
-                    }
-                    if let Some(place_guess) = &query_result.observation.place_guess {
-                        ui.label(format!("Location: {}", place_guess));
-                    }
-                    if let Some(description) = &query_result.observation.description {
-                        ui.label("Description:");
-                        egui::ScrollArea::vertical().show(ui, |ui| {
-                            ui.label(description);
-                        });
-                    }
-                } else {
-                    ui.spinner();
+                let image_size = egui::Vec2::new(ui.available_width(), ui.available_height() * 0.6);
+                let image_url = query_result.observation.photos.as_ref().unwrap()[0]
+                    .url
+                    .as_ref()
+                    .unwrap();
+                let response = ui.add(egui::Image::new(image_url).max_size(image_size));
+                // if response.clicked() {
+                //     tracing::info!("Clicked the image");
+                //     ui.ctx().output_mut(|o| {
+                //         o.open_url = Some(egui::output::OpenUrl {
+                //             url: url.into(),
+                //             new_tab: true,
+                //         });
+                //     });
+                // }
+                ui.hyperlink(query_result.observation.uri.as_ref().unwrap());
+                if let Some(observed_on) = &query_result.observation.observed_on_string {
+                    ui.label(format!("Observed on: {}", observed_on));
                 }
-                ui.separator();
-            });
-        });
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Details Panel");
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                let Some(current_observation_index) = self.find_index_for_current_observation()
-                else {
-                    return;
-                };
-                let query_result = &self.results[current_observation_index];
-                if let Some((url, image)) = self
-                    .image_store
-                    .read()
-                    .unwrap()
-                    .load(query_result.observation.id.unwrap())
-                {
-                    let image_size =
-                        egui::Vec2::new(ui.available_width(), ui.available_height() * 0.6);
-                    let response = image.show_max_size(ui, image_size);
-                    if response.clicked() {
-                        tracing::info!("Clicked the image");
-                        ui.ctx().output_mut(|o| {
-                            o.open_url = Some(egui::output::OpenUrl {
-                                url: url.into(),
-                                new_tab: true,
-                            });
-                        });
-                    }
-                    ui.hyperlink(query_result.observation.uri.as_ref().unwrap());
-                    if let Some(observed_on) = &query_result.observation.observed_on_string {
-                        ui.label(format!("Observed on: {}", observed_on));
-                    }
-                    if let Some(place_guess) = &query_result.observation.place_guess {
-                        ui.label(format!("Location: {}", place_guess));
-                    }
-                    if let Some(description) = &query_result.observation.description {
-                        ui.label("Description:");
-                        egui::ScrollArea::vertical().show(ui, |ui| {
-                            ui.label(description);
-                        });
-                    }
-                } else {
-                    ui.spinner();
+                if let Some(place_guess) = &query_result.observation.place_guess {
+                    ui.label(format!("Location: {}", place_guess));
+                }
+                if let Some(description) = &query_result.observation.description {
+                    ui.label("Description:");
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        ui.label(description);
+                    });
                 }
                 ui.separator();
             });

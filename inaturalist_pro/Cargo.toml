@@ -7,9 +7,9 @@ edition = "2021"
 arrayvec = "0.7"
 actix = "0.13"
 colorous = "1"
-egui = "0.22"
-egui_extras = { version = "0.22", features = ["image"] }
-eframe = { version = "0.22", features = ["persistence"] }
+egui = "0.28"
+egui_extras = { version = "0.28", features = ["all_loaders"] }
+eframe = { version = "0.28", features = ["persistence"] }
 futures = "0.3"
 genawaiter = "0.99"
 geo = { version = "0.31", features = ["use-serde"] }

@@ -1,7 +1,7 @@
 use actix::{prelude::*, SystemRegistry};
 use geohash_ext::GeohashGrid;
 use identify_actor::IdentifyActor;
-use image_store_actor::ImageStoreActor;
+
 use inaturalist::models::{Observation, ShowTaxon};
 use inaturalist_oauth::{Authenticator, TokenDetails};
 use observation_loader_actor::ObservationLoaderActor;
@@ -20,8 +20,6 @@ mod app;
 mod geohash_ext;
 mod geohash_observations;
 mod identify_actor;
-mod image_store;
-mod image_store_actor;
 mod observation_loader_actor;
 mod observation_processor_actor;
 mod operations;
@@ -113,13 +111,6 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     });
     SystemRegistry::set(addr);
 
-    let image_store = sync::Arc::new(sync::RwLock::new(image_store::ImageStore::default()));
-    let addr = ImageStoreActor::start_in_arbiter(&Arbiter::new().handle(), {
-        let image_store = image_store.clone();
-        |_| ImageStoreActor { image_store }
-    });
-    SystemRegistry::set(addr);
-
     let addr = ObservationProcessorActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
         let api_token = api_token.clone();
@@ -160,15 +151,14 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         "iNaturalist Identifier Pro",
         eframe::NativeOptions::default(),
         Box::new(move |_| {
-            Box::new(crate::app::App {
+            Ok(Box::new(crate::app::App {
                 tx_app_message,
                 rx_app_message,
                 loaded_geohashes: 0,
                 results: vec![],
-                image_store,
                 taxa_store: Default::default(),
                 current_observation_id: None,
-            })
+            }))
         }),
     )?;
 
