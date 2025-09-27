@@ -10,7 +10,7 @@ futures = "0.3"
 genawaiter = "0.99"
 geo = "0.31"
 geo-ext = { path = "../geo-ext" }
-governor = "0.5"
+governor = "0.10"
 inaturalist = "0.7"
 ordered-float = { version = "3", features = ["serde"] }
 reqwest = "0.12"
