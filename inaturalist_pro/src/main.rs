@@ -1,35 +1,29 @@
 use actix::{prelude::*, SystemRegistry};
+use actors::{
+    IdentifyActor, ObservationLoaderActor, ObservationProcessorActor, TaxaLoaderActor,
+    TaxonTreeBuilderActor,
+};
 use geohash_ext::GeohashGrid;
-use identify_actor::IdentifyActor;
-
 use inaturalist::models::{Observation, ShowTaxon};
 use inaturalist_oauth::{Authenticator, TokenDetails};
-use observation_loader_actor::ObservationLoaderActor;
-use observation_processor_actor::ObservationProcessorActor;
 use serde::{Deserialize, Serialize};
 use std::{error, sync};
-use taxa_loader_actor::TaxaLoaderActor;
-use taxon_tree_builder_actor::TaxonTreeBuilderActor;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 struct MyConfig {
     token: Option<TokenDetails>,
 }
 
+mod actors;
 mod app;
 mod geohash_ext;
 mod geohash_observations;
-mod identify_actor;
-mod observation_loader_actor;
-mod observation_processor_actor;
 mod operations;
 mod panels;
 
 mod places;
-mod taxa_loader_actor;
 mod taxa_store;
 mod taxon_tree;
-mod taxon_tree_builder_actor;
 mod widgets;
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
@@ -117,7 +111,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         let tx_app_message = tx_app_message.clone();
         let api_token = api_token.clone();
         {
-            |_ctx| observation_processor_actor::ObservationProcessorActor {
+            |_ctx| ObservationProcessorActor {
                 tx_app_message,
                 operation,
                 api_token,

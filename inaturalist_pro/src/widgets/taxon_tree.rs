@@ -1,8 +1,10 @@
 use crate::{
-    identify_actor::{IdentifyActor, IdentifyMessage},
+    actors::identify_actor::{IdentifyActor, IdentifyMessage},
     taxa_store::TaxaStore,
 };
+
 use actix::SystemService;
+
 use egui::{Sense, Vec2};
 use inaturalist::models::Observation;
 

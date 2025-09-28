@@ -1,7 +1,7 @@
 use crate::{
+    actors::taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor},
     panels::{DetailsPanel, IdentificationPanel, ObservationGalleryPanel, TopPanel},
     taxa_store::TaxaStore,
-    taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor},
 };
 use actix::SystemService;
 use inaturalist::models::Observation;

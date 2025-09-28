@@ -1,5 +1,7 @@
+use crate::actors::observation_processor_actor::{
+    ObservationProcessorActor, ProcessObservationMessage,
+};
 use crate::geohash_ext::GeohashGrid;
-use crate::observation_processor_actor::{ObservationProcessorActor, ProcessObservationMessage};
 use crate::{geohash_observations::GeohashObservations, operations::Operation};
 use actix::prelude::*;
 use tokio::sync::mpsc::UnboundedSender;
