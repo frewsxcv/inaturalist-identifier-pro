@@ -129,6 +129,7 @@ pub trait Operation {
     // }
 }
 
+#[allow(unused)]
 pub struct NoOp(pub Vec<Observation>);
 
 impl Operation for NoOp {
@@ -297,6 +298,7 @@ impl Operation for TopImageScore {
 }
 
 #[derive(Default)]
+#[allow(unused)]
 pub struct PrintPlantae(pub Vec<Observation>);
 
 impl Operation for PrintPlantae {
@@ -316,6 +318,7 @@ impl Operation for PrintPlantae {
 }
 
 #[derive(Default)]
+#[allow(unused)]
 pub struct PrintAngiospermae(pub Vec<Observation>);
 
 impl Operation for PrintAngiospermae {

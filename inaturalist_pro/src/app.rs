@@ -103,7 +103,7 @@ impl eframe::App for App {
         }
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Quit").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -155,7 +155,7 @@ impl eframe::App for App {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Details Panel");
-            let rect = ui.max_rect();
+            let _rect = ui.max_rect();
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let Some(current_observation_index) = self.find_index_for_current_observation()
                 else {
@@ -167,7 +167,7 @@ impl eframe::App for App {
                     .url
                     .as_ref()
                     .unwrap();
-                let response = ui.add(egui::Image::new(image_url).max_size(image_size));
+                let _response = ui.add(egui::Image::new(image_url).max_size(image_size));
                 // if response.clicked() {
                 //     tracing::info!("Clicked the image");
                 //     ui.ctx().output_mut(|o| {
@@ -265,7 +265,7 @@ impl<'a> egui::Widget for TaxonTreeWidget<'a> {
                         ));
                         let shape = egui::Shape::rect_filled(
                             rect,
-                            egui::Rounding::default(),
+                            egui::CornerRadius::default(),
                             egui::Color32::from_rgb(score_color.r, score_color.g, score_color.b),
                         );
                         ui.painter().add(shape);
