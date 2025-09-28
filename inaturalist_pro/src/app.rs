@@ -1,7 +1,7 @@
 use crate::{
+    panels::{DetailsPanel, IdentificationPanel, ObservationGalleryPanel, TopPanel},
     taxa_store::TaxaStore,
     taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor},
-    widgets::taxon_tree::TaxonTreeWidget,
 };
 use actix::SystemService;
 use inaturalist::models::Observation;
@@ -15,12 +15,36 @@ pub(crate) struct App {
     pub results: Vec<QueryResult>,
     pub taxa_store: TaxaStore,
     pub current_observation_id: Option<ObservationId>,
+
+    // Panels
+    details_panel: DetailsPanel,
+    identification_panel: IdentificationPanel,
+    observation_gallery_panel: ObservationGalleryPanel,
+    top_panel: TopPanel,
+}
+
+impl Default for App {
+    fn default() -> Self {
+        let (tx_app_message, rx_app_message) = tokio::sync::mpsc::unbounded_channel();
+        Self {
+            tx_app_message,
+            rx_app_message,
+            loaded_geohashes: 0,
+            results: Default::default(),
+            taxa_store: Default::default(),
+            current_observation_id: Default::default(),
+            details_panel: Default::default(),
+            identification_panel: Default::default(),
+            observation_gallery_panel: Default::default(),
+            top_panel: Default::default(),
+        }
+    }
 }
 
 pub struct QueryResult {
-    observation: Observation,
-    scores: Option<Vec<inaturalist_fetch::ComputerVisionObservationScore>>,
-    taxon_tree: crate::taxon_tree::TaxonTree,
+    pub observation: Observation,
+    pub scores: Option<Vec<inaturalist_fetch::ComputerVisionObservationScore>>,
+    pub taxon_tree: crate::taxon_tree::TaxonTree,
 }
 
 impl App {
@@ -98,97 +122,16 @@ impl eframe::App for App {
             }
         }
 
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            egui::MenuBar::new().ui(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
-                });
-            });
-        });
+        self.top_panel.show(ctx);
+        self.observation_gallery_panel.show(ctx, &self.results);
 
-        egui::SidePanel::left("observation_gallery").show(ctx, |ui| {
-            ui.heading("Observation Gallery");
-            ui.label(format!("Loaded observations: {}", self.results.len()));
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                for result in &self.results {
-                    ui.image(
-                        result.observation.photos.as_ref().unwrap()[0]
-                            .url
-                            .as_ref()
-                            .unwrap(),
-                    );
-                }
-            });
-        });
+        let query_result = self
+            .find_index_for_current_observation()
+            .map(|index| &self.results[index]);
 
-        egui::SidePanel::right("identification_panel").show(ctx, |ui| {
-            ui.heading("Identification Panel");
-            let Some(current_observation_index) = self.find_index_for_current_observation() else {
-                return;
-            };
-            let query_result = &self.results[current_observation_index];
-            if query_result.taxon_tree.0.is_empty() {
-                ui.spinner();
-            } else {
-                let mut identified = false;
-                for node in query_result.taxon_tree.0.iter() {
-                    ui.add(TaxonTreeWidget {
-                        observation: &query_result.observation,
-                        root_node: node,
-                        taxa_store: &self.taxa_store,
-                        identified: &mut identified,
-                    });
-                }
-                if identified {
-                    self.tx_app_message
-                        .send(crate::AppMessage::SkipCurrentObservation)
-                        .unwrap();
-                }
-            }
-        });
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Details Panel");
-            let _rect = ui.max_rect();
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                let Some(current_observation_index) = self.find_index_for_current_observation()
-                else {
-                    return;
-                };
-                let query_result = &self.results[current_observation_index];
-                let image_size = egui::Vec2::new(ui.available_width(), ui.available_height() * 0.6);
-                let image_url = query_result.observation.photos.as_ref().unwrap()[0]
-                    .url
-                    .as_ref()
-                    .unwrap();
-                let _response = ui.add(egui::Image::new(image_url).max_size(image_size));
-                // if response.clicked() {
-                //     tracing::info!("Clicked the image");
-                //     ui.ctx().output_mut(|o| {
-                //         o.open_url = Some(egui::output::OpenUrl {
-                //             url: url.into(),
-                //             new_tab: true,
-                //         });
-                //     });
-                // }
-                ui.hyperlink(query_result.observation.uri.as_ref().unwrap());
-                if let Some(observed_on) = &query_result.observation.observed_on_string {
-                    ui.label(format!("Observed on: {}", observed_on));
-                }
-                if let Some(place_guess) = &query_result.observation.place_guess {
-                    ui.label(format!("Location: {}", place_guess));
-                }
-                if let Some(description) = &query_result.observation.description {
-                    ui.label("Description:");
-                    egui::ScrollArea::vertical().show(ui, |ui| {
-                        ui.label(description);
-                    });
-                }
-                ui.separator();
-            });
-        });
+        self.identification_panel
+            .show(ctx, query_result, &self.taxa_store, &self.tx_app_message);
+        self.details_panel.show(ctx, query_result);
     }
 }
 

@@ -23,6 +23,8 @@ mod identify_actor;
 mod observation_loader_actor;
 mod observation_processor_actor;
 mod operations;
+mod panels;
+
 mod places;
 mod taxa_loader_actor;
 mod taxa_store;
@@ -151,14 +153,10 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         "iNaturalist Identifier Pro",
         eframe::NativeOptions::default(),
         Box::new(move |_| {
-            Ok(Box::new(crate::app::App {
-                tx_app_message,
-                rx_app_message,
-                loaded_geohashes: 0,
-                results: vec![],
-                taxa_store: Default::default(),
-                current_observation_id: None,
-            }))
+            let mut app = crate::app::App::default();
+            app.tx_app_message = tx_app_message;
+            app.rx_app_message = rx_app_message;
+            Ok(Box::new(app))
         }),
     )?;
 
