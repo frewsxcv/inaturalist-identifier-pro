@@ -4,23 +4,35 @@ use crate::{
     taxa_store::TaxaStore,
 };
 use actix::SystemService;
-use inaturalist::models::Observation;
+use inaturalist::models::{Observation, ShowTaxon};
 
 type ObservationId = i32;
+
+pub struct QueryResult {
+    pub observation: Observation,
+    pub scores: Option<Vec<inaturalist_fetch::ComputerVisionObservationScore>>,
+    pub taxon_tree: crate::taxon_tree::TaxonTree,
+}
+
+struct AppState {
+    loaded_geohashes: usize,
+    results: Vec<QueryResult>,
+    taxa_store: TaxaStore,
+    current_observation_id: Option<ObservationId>,
+}
+
+struct AppPanels {
+    details: DetailsPanel,
+    identification: IdentificationPanel,
+    observation_gallery: ObservationGalleryPanel,
+    top: TopPanel,
+}
 
 pub(crate) struct App {
     pub tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<crate::AppMessage>,
-    pub loaded_geohashes: usize,
-    pub results: Vec<QueryResult>,
-    pub taxa_store: TaxaStore,
-    pub current_observation_id: Option<ObservationId>,
-
-    // Panels
-    details_panel: DetailsPanel,
-    identification_panel: IdentificationPanel,
-    observation_gallery_panel: ObservationGalleryPanel,
-    top_panel: TopPanel,
+    state: AppState,
+    panels: AppPanels,
 }
 
 impl Default for App {
@@ -29,27 +41,154 @@ impl Default for App {
         Self {
             tx_app_message,
             rx_app_message,
-            loaded_geohashes: 0,
-            results: Default::default(),
-            taxa_store: Default::default(),
-            current_observation_id: Default::default(),
-            details_panel: Default::default(),
-            identification_panel: Default::default(),
-            observation_gallery_panel: Default::default(),
-            top_panel: Default::default(),
+            state: AppState::default(),
+            panels: AppPanels::default(),
         }
     }
 }
 
-pub struct QueryResult {
-    pub observation: Observation,
-    pub scores: Option<Vec<inaturalist_fetch::ComputerVisionObservationScore>>,
-    pub taxon_tree: crate::taxon_tree::TaxonTree,
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            loaded_geohashes: 0,
+            results: Vec::new(),
+            taxa_store: TaxaStore::default(),
+            current_observation_id: None,
+        }
+    }
 }
 
-impl App {
-    fn build_taxon_tree_in_background_thread(
-        &self,
+impl Default for AppPanels {
+    fn default() -> Self {
+        Self {
+            details: DetailsPanel::default(),
+            identification: IdentificationPanel::default(),
+            observation_gallery: ObservationGalleryPanel::default(),
+            top: TopPanel::default(),
+        }
+    }
+}
+
+impl eframe::App for App {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui_extras::install_image_loaders(ctx);
+
+        self.process_messages();
+        self.render_ui(ctx);
+    }
+}
+
+struct MessageHandler<'a> {
+    state: &'a mut AppState,
+}
+
+impl<'a> MessageHandler<'a> {
+    fn new(state: &'a mut AppState) -> Self {
+        Self { state }
+    }
+
+    fn handle_progress(&mut self) {
+        self.state.loaded_geohashes += 1;
+    }
+
+    fn handle_taxon_loaded(&mut self, taxon: Box<ShowTaxon>) {
+        self.state
+            .taxa_store
+            .0
+            .insert(taxon.id.unwrap(), (&*taxon).into());
+    }
+
+    fn handle_observation_loaded(&mut self, observation: Box<Observation>) {
+        if self.state.current_observation_id.is_none() {
+            self.state.current_observation_id = observation.id;
+        }
+
+        self.state.results.push(QueryResult {
+            observation: *observation.clone(),
+            scores: None,
+            taxon_tree: Default::default(),
+        });
+    }
+
+    fn handle_cv_scores(
+        &mut self,
+        observation_id: ObservationId,
+        scores: Vec<inaturalist_fetch::ComputerVisionObservationScore>,
+    ) {
+        let Some(observation_index) = self.find_observation_index(observation_id) else {
+            return;
+        };
+
+        Self::build_taxon_tree_async(
+            &self.state.results[observation_index].observation,
+            scores.clone(),
+        );
+        self.state.results[observation_index].scores = Some(scores);
+        self.sort_observations_by_score();
+    }
+
+    fn handle_taxon_tree(
+        &mut self,
+        observation_id: ObservationId,
+        taxon_tree: crate::taxon_tree::TaxonTree,
+    ) {
+        for result in &mut self.state.results {
+            if result.observation.id == Some(observation_id) {
+                result.taxon_tree = taxon_tree;
+                break;
+            }
+        }
+    }
+
+    fn handle_skip_observation(&mut self) {
+        let Some(current_index) = self.get_current_observation_index() else {
+            return;
+        };
+
+        self.state.results.remove(current_index);
+        self.select_next_observation();
+    }
+
+    fn find_observation_index(&self, observation_id: ObservationId) -> Option<usize> {
+        self.state
+            .results
+            .iter()
+            .position(|result| result.observation.id.unwrap() == observation_id)
+    }
+
+    fn get_current_observation_index(&self) -> Option<usize> {
+        self.state
+            .current_observation_id
+            .and_then(|id| self.find_observation_index(id))
+    }
+
+    fn select_next_observation(&mut self) {
+        self.state.current_observation_id = self
+            .state
+            .results
+            .first()
+            .map(|result| result.observation.id.unwrap());
+    }
+
+    fn sort_observations_by_score(&mut self) {
+        self.state.results.sort_unstable_by(|a, b| {
+            let score_a = a
+                .scores
+                .as_ref()
+                .and_then(|scores| scores.first())
+                .map_or(0.0, |score| score.combined_score);
+
+            let score_b = b
+                .scores
+                .as_ref()
+                .and_then(|scores| scores.first())
+                .map_or(0.0, |score| score.combined_score);
+
+            score_b.partial_cmp(&score_a).unwrap()
+        });
+    }
+
+    fn build_taxon_tree_async(
         observation: &Observation,
         scores: Vec<inaturalist_fetch::ComputerVisionObservationScore>,
     ) {
@@ -62,108 +201,52 @@ impl App {
     }
 }
 
-impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui_extras::install_image_loaders(ctx);
-        if let Ok(app_message) = self.rx_app_message.try_recv() {
-            match app_message {
-                crate::AppMessage::Progress => {
-                    self.loaded_geohashes += 1;
-                }
-                crate::AppMessage::TaxonLoaded(taxon) => {
-                    self.taxa_store
-                        .0
-                        .insert(taxon.id.unwrap(), (&*taxon).into());
-                }
-                crate::AppMessage::ObservationLoaded(observation) => {
-                    if self.current_observation_id.is_none() {
-                        self.current_observation_id = observation.id;
-                    }
+impl App {
+    fn process_messages(&mut self) {
+        let mut handler = MessageHandler::new(&mut self.state);
 
-                    self.results.push(QueryResult {
-                        observation: *observation.clone(),
-                        scores: None,
-                        taxon_tree: Default::default(),
-                    });
+        while let Ok(message) = self.rx_app_message.try_recv() {
+            match message {
+                crate::AppMessage::Progress => handler.handle_progress(),
+                crate::AppMessage::TaxonLoaded(taxon) => handler.handle_taxon_loaded(taxon),
+                crate::AppMessage::ObservationLoaded(observation) => {
+                    handler.handle_observation_loaded(observation)
                 }
                 crate::AppMessage::ComputerVisionScoreLoaded(observation_id, scores) => {
-                    let Some(observation_index) =
-                        self.find_index_for_observation_id(observation_id)
-                    else {
-                        // TODO: Log error here
-                        return;
-                    };
-                    self.build_taxon_tree_in_background_thread(
-                        &self.results[observation_index].observation,
-                        scores.clone(),
-                    );
-                    self.results[observation_index].scores = Some(scores);
-                    self.sort_results();
+                    handler.handle_cv_scores(observation_id, scores);
                 }
                 crate::AppMessage::TaxonTree {
                     observation_id,
                     taxon_tree,
                 } => {
-                    for n in &mut self.results {
-                        if n.observation.id == Some(observation_id) {
-                            n.taxon_tree = taxon_tree;
-                            break;
-                        }
-                    }
+                    handler.handle_taxon_tree(observation_id, taxon_tree);
                 }
-                crate::AppMessage::SkipCurrentObservation => {
-                    let Some(current_observation_index) = self.find_index_for_current_observation()
-                    else {
-                        return;
-                    };
-                    self.results.remove(current_observation_index);
-                    self.select_new_observation();
-                }
+                crate::AppMessage::SkipCurrentObservation => handler.handle_skip_observation(),
             }
         }
-
-        self.top_panel.show(ctx);
-        self.observation_gallery_panel.show(ctx, &self.results);
-
-        let query_result = self
-            .find_index_for_current_observation()
-            .map(|index| &self.results[index]);
-
-        self.identification_panel
-            .show(ctx, query_result, &self.taxa_store, &self.tx_app_message);
-        self.details_panel.show(ctx, query_result);
-    }
-}
-
-impl App {
-    fn select_new_observation(&mut self) {
-        self.current_observation_id = self.results.first().map(|o| o.observation.id.unwrap());
     }
 
-    fn find_index_for_current_observation(&self) -> Option<usize> {
-        self.current_observation_id
-            .and_then(|id| self.find_index_for_observation_id(id))
-    }
-
-    fn find_index_for_observation_id(&self, observation_id: ObservationId) -> Option<usize> {
-        self.results
-            .iter()
-            .enumerate()
-            .find(|(_, result)| result.observation.id.unwrap() == observation_id)
-            .map(|(i, _)| i)
-    }
-
-    fn sort_results(&mut self) {
-        self.results.sort_unstable_by(|a, b| {
-            let score_a = a
-                .scores
-                .as_ref()
-                .map_or(0., |scores| scores[0].combined_score);
-            let score_b = b
-                .scores
-                .as_ref()
-                .map_or(0., |scores| scores[0].combined_score);
-            score_a.partial_cmp(&score_b).unwrap().reverse()
+    fn render_ui(&mut self, ctx: &egui::Context) {
+        let current_observation_index = self.state.current_observation_id.and_then(|id| {
+            self.state
+                .results
+                .iter()
+                .position(|result| result.observation.id.unwrap() == id)
         });
+
+        self.panels.top.show(ctx);
+        self.panels
+            .observation_gallery
+            .show(ctx, &self.state.results);
+
+        let current_observation = current_observation_index.map(|index| &self.state.results[index]);
+
+        self.panels.identification.show(
+            ctx,
+            current_observation,
+            &self.state.taxa_store,
+            &self.tx_app_message,
+        );
+        self.panels.details.show(ctx, current_observation);
     }
 }
