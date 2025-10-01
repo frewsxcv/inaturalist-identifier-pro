@@ -1,4 +1,5 @@
 use crate::app::QueryResult;
+use crate::utils::to_original_image_url;
 
 #[derive(Default)]
 pub struct DetailsPanel;
@@ -23,7 +24,9 @@ impl DetailsPanel {
                 {
                     let image_size =
                         egui::Vec2::new(ui.available_width(), ui.available_height() * 0.6);
-                    let _response = ui.add(egui::Image::new(image_url).max_size(image_size));
+                    let original_url = to_original_image_url(image_url);
+                    let _response =
+                        ui.add(egui::Image::new(original_url.as_ref()).max_size(image_size));
                 }
 
                 if let Some(uri) = &query_result.observation.uri {

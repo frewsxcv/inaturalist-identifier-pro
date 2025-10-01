@@ -24,6 +24,7 @@ mod panels;
 mod places;
 mod taxa_store;
 mod taxon_tree;
+mod utils;
 mod widgets;
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;

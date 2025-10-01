@@ -1,4 +1,5 @@
 use crate::app::QueryResult;
+use crate::utils::to_original_image_url;
 
 pub struct ObservationGalleryWidget<'a> {
     pub results: &'a [QueryResult],
@@ -14,7 +15,8 @@ impl<'a> egui::Widget for ObservationGalleryWidget<'a> {
                     if let Some(photo) = result.observation.photos.as_ref().and_then(|p| p.first())
                     {
                         if let Some(url) = photo.url.as_ref() {
-                            ui.image(url);
+                            let original_url = to_original_image_url(url);
+                            ui.image(original_url.as_ref());
                         }
                     }
                 }
