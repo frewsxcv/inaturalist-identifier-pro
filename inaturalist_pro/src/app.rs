@@ -1,12 +1,21 @@
 use crate::{
     actors::taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor},
-    panels::{DetailsPanel, IdentificationPanel, ObservationGalleryPanel, TopPanel},
+    panels::TopPanel,
     taxa_store::TaxaStore,
+    views::{IdentifyView, ObservationsView, TaxaView, UsersView},
 };
 use actix::SystemService;
 use inaturalist::models::{Observation, ShowTaxon};
 
 type ObservationId = i32;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AppView {
+    Identify,
+    Observations,
+    Users,
+    Taxa,
+}
 
 pub struct QueryResult {
     pub observation: Observation,
@@ -19,19 +28,26 @@ struct AppState {
     results: Vec<QueryResult>,
     taxa_store: TaxaStore,
     current_observation_id: Option<ObservationId>,
+    current_view: AppView,
 }
 
 struct AppPanels {
-    details: DetailsPanel,
-    identification: IdentificationPanel,
-    observation_gallery: ObservationGalleryPanel,
     top: TopPanel,
+}
+
+struct AppViews {
+    identify: IdentifyView,
+    observations: ObservationsView,
+    users: UsersView,
+    taxa: TaxaView,
 }
 
 pub(crate) struct App {
     pub tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<crate::AppMessage>,
+    pub observation_loader_addr: Option<actix::Addr<crate::actors::ObservationLoaderActor>>,
     state: AppState,
+    views: AppViews,
     panels: AppPanels,
 }
 
@@ -41,7 +57,9 @@ impl Default for App {
         Self {
             tx_app_message,
             rx_app_message,
+            observation_loader_addr: None,
             state: AppState::default(),
+            views: AppViews::default(),
             panels: AppPanels::default(),
         }
     }
@@ -54,6 +72,18 @@ impl Default for AppState {
             results: Vec::new(),
             taxa_store: TaxaStore::default(),
             current_observation_id: None,
+            current_view: AppView::Identify,
+        }
+    }
+}
+
+impl Default for AppViews {
+    fn default() -> Self {
+        Self {
+            identify: IdentifyView::default(),
+            observations: ObservationsView::default(),
+            users: UsersView::default(),
+            taxa: TaxaView::default(),
         }
     }
 }
@@ -61,9 +91,6 @@ impl Default for AppState {
 impl Default for AppPanels {
     fn default() -> Self {
         Self {
-            details: DetailsPanel::default(),
-            identification: IdentificationPanel::default(),
-            observation_gallery: ObservationGalleryPanel::default(),
             top: TopPanel::default(),
         }
     }
@@ -227,26 +254,58 @@ impl App {
     }
 
     fn render_ui(&mut self, ctx: &egui::Context) {
-        let current_observation_index = self.state.current_observation_id.and_then(|id| {
-            self.state
-                .results
-                .iter()
-                .position(|result| result.observation.id.unwrap() == id)
-        });
-
         self.panels.top.show(ctx);
-        self.panels
-            .observation_gallery
-            .show(ctx, &self.state.results);
 
-        let current_observation = current_observation_index.map(|index| &self.state.results[index]);
+        egui::SidePanel::left("navigation_panel")
+            .resizable(false)
+            .default_width(200.0)
+            .show(ctx, |ui| {
+                ui.heading("iNaturalist Pro");
+                ui.separator();
 
-        self.panels.identification.show(
+                ui.selectable_value(
+                    &mut self.state.current_view,
+                    AppView::Identify,
+                    "🔍 Identify",
+                );
+                ui.selectable_value(
+                    &mut self.state.current_view,
+                    AppView::Observations,
+                    "📷 Observations",
+                );
+                ui.selectable_value(&mut self.state.current_view, AppView::Users, "👤 Users");
+                ui.selectable_value(&mut self.state.current_view, AppView::Taxa, "🌿 Taxa");
+            });
+
+        match self.state.current_view {
+            AppView::Identify => self.render_identify_view(ctx),
+            AppView::Observations => self.render_observations_view(ctx),
+            AppView::Users => self.render_users_view(ctx),
+            AppView::Taxa => self.render_taxa_view(ctx),
+        }
+    }
+
+    fn render_identify_view(&mut self, ctx: &egui::Context) {
+        self.views.identify.show(
             ctx,
-            current_observation,
+            &self.state.results,
+            self.state.current_observation_id,
             &self.state.taxa_store,
             &self.tx_app_message,
+            self.state.loaded_geohashes,
+            self.observation_loader_addr.as_ref(),
         );
-        self.panels.details.show(ctx, current_observation);
+    }
+
+    fn render_observations_view(&mut self, ctx: &egui::Context) {
+        self.views.observations.show(ctx);
+    }
+
+    fn render_users_view(&mut self, ctx: &egui::Context) {
+        self.views.users.show(ctx);
+    }
+
+    fn render_taxa_view(&mut self, ctx: &egui::Context) {
+        self.views.taxa.show(ctx);
     }
 }

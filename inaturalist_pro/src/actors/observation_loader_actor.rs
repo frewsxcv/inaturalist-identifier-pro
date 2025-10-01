@@ -12,13 +12,23 @@ pub struct ObservationLoaderActor {
     pub api_token: String,
 }
 
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct StartLoadingMessage;
+
 impl Actor for ObservationLoaderActor {
     type Context = Context<Self>;
+}
 
-    fn started(&mut self, ctx: &mut Self::Context) {
+impl Handler<StartLoadingMessage> for ObservationLoaderActor {
+    type Result = ();
+
+    fn handle(&mut self, _msg: StartLoadingMessage, ctx: &mut Self::Context) {
+        tracing::info!("Starting observation loading...");
         let grid = self.grid.clone();
         let tx_app_message = self.tx_app_message.clone();
         let api_token = self.api_token.clone();
+
         let t = async move {
             for (i, geohash) in grid.clone().0.into_iter().enumerate() {
                 tracing::info!(
@@ -27,32 +37,36 @@ impl Actor for ObservationLoaderActor {
                     i + 1,
                     grid.0.len(),
                 );
-                GeohashObservations(geohash)
+
+                match GeohashObservations(geohash)
                     .fetch_from_api(
                         |observation| {
-                            ObservationProcessorActor::from_registry()
+                            if let Err(e) = ObservationProcessorActor::from_registry()
                                 .try_send(ProcessObservationMessage { observation })
-                                .unwrap();
+                            {
+                                tracing::warn!("Failed to send observation to processor: {}", e);
+                            }
                         },
                         crate::fetch_soft_limit(),
                         crate::CurOperation::request(),
                         &api_token,
                     )
                     .await
-                    .unwrap();
-                tx_app_message
-                    .clone()
-                    .send(crate::AppMessage::Progress)
-                    .unwrap();
+                {
+                    Ok(_) => {
+                        if let Err(e) = tx_app_message.clone().send(crate::AppMessage::Progress) {
+                            tracing::error!("Failed to send progress message: {}", e);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to fetch observations for geohash: {}", e);
+                        // Continue to next geohash instead of crashing
+                        continue;
+                    }
+                }
             }
-            // FIXME: call below
-            // operation.lock().await.finish();
-            tracing::info!("Finished loading thread");
-            // tx.send(AppMessage::Results(std::mem::take(
-            //     &mut operation.0,
-            // )))
-            // .await
-            // .unwrap();
+
+            tracing::info!("Finished loading observations");
         };
 
         ctx.spawn(Box::pin(t).into_actor(self));

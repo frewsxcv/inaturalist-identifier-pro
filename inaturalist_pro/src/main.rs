@@ -20,11 +20,11 @@ mod geohash_ext;
 mod geohash_observations;
 mod operations;
 mod panels;
-
 mod places;
 mod taxa_store;
 mod taxon_tree;
 mod utils;
+mod views;
 mod widgets;
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
@@ -88,15 +88,16 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let (tx_app_message, rx_app_message) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
 
-    ObservationLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
-        let tx_app_message = tx_app_message.clone();
-        let api_token = api_token.clone();
-        |_ctx| ObservationLoaderActor {
-            tx_app_message,
-            grid,
-            api_token,
-        }
-    });
+    let observation_loader_addr =
+        ObservationLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
+            let tx_app_message = tx_app_message.clone();
+            let api_token = api_token.clone();
+            |_ctx| ObservationLoaderActor {
+                tx_app_message,
+                grid,
+                api_token,
+            }
+        });
 
     let addr = TaxonTreeBuilderActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
@@ -145,12 +146,13 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     SystemRegistry::set(addr);
 
     eframe::run_native(
-        "iNaturalist Identifier Pro",
+        "iNaturalist Pro",
         eframe::NativeOptions::default(),
         Box::new(move |_| {
             let mut app = crate::app::App::default();
             app.tx_app_message = tx_app_message;
             app.rx_app_message = rx_app_message;
+            app.observation_loader_addr = Some(observation_loader_addr);
             Ok(Box::new(app))
         }),
     )?;
