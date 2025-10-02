@@ -5,13 +5,14 @@ Welcome to iNaturalist Pro! This guide will help you get started with exploring 
 ## Table of Contents
 
 1. [Getting Started](#getting-started)
-2. [Navigation](#navigation)
-3. [Identify View](#identify-view)
-4. [Observations View](#observations-view)
-5. [Users View](#users-view)
-6. [Taxa View](#taxa-view)
-7. [Tips & Best Practices](#tips--best-practices)
-8. [FAQ](#faq)
+2. [Authentication](#authentication)
+3. [Navigation](#navigation)
+4. [Identify View](#identify-view)
+5. [Observations View](#observations-view)
+6. [Users View](#users-view)
+7. [Taxa View](#taxa-view)
+8. [Tips & Best Practices](#tips--best-practices)
+9. [FAQ](#faq)
 
 ---
 
@@ -21,9 +22,9 @@ Welcome to iNaturalist Pro! This guide will help you get started with exploring 
 
 When you first launch iNaturalist Pro:
 
-1. **Authentication**: The app will automatically authenticate with iNaturalist using OAuth. You'll see your access token in the logs.
+1. **Main Window**: The application window will open with the navigation sidebar on the left.
 
-2. **Main Window**: The application window will open with the navigation sidebar on the left.
+2. **Authentication (Optional)**: You can use the app without logging in to browse public data. To access features that require authentication (like adding identifications), click the "🔒 Login" button in the top-right corner of the window.
 
 3. **Choose a View**: Click on any of the four main sections to get started.
 
@@ -32,6 +33,56 @@ When you first launch iNaturalist Pro:
 - **Internet Connection**: Required for fetching data from iNaturalist
 - **Operating System**: macOS, Linux, or Windows
 - **Screen Resolution**: Minimum 1024x768 recommended
+
+---
+
+## Authentication
+
+iNaturalist Pro now supports **dynamic authentication**, meaning you can start using the app immediately without logging in, and authenticate only when you need features that require it.
+
+### Using the App Without Login
+
+Most features work without authentication:
+
+- ✅ Browse observations
+- ✅ View observation details and photos
+- ✅ Explore taxonomic information
+- ✅ Search for users
+- ✅ View computer vision suggestions
+
+### When You Need to Log In
+
+Some features require authentication:
+
+- 🔒 Adding identifications to observations
+- 🔒 Accessing your personal data
+- 🔒 Submitting observations (future feature)
+
+### How to Log In
+
+1. **Click the Login Button**: Look for the "🔒 Login" button in the top-right corner of the window.
+
+2. **Login Modal**: A dialog will appear explaining that you'll be redirected to your browser for authentication.
+
+3. **Browser Authentication**: Your default web browser will open to iNaturalist's OAuth page. Log in with your iNaturalist credentials.
+
+4. **Authorization**: Grant permission for iNaturalist Pro to access your account.
+
+5. **Return to App**: Once authenticated, return to the app. You'll see "👤 Profile" in the top-right corner, indicating you're logged in.
+
+### Token Management
+
+- **Automatic Saving**: Your authentication token is automatically saved to your system's config directory.
+- **Automatic Loading**: On subsequent launches, the app will automatically use your saved token if it's still valid.
+- **Token Expiration**: If your token expires, you'll be prompted to log in again when needed.
+
+### Profile Menu
+
+Once logged in, click the "👤 Profile" button to access:
+
+- Account information (coming soon)
+- Logout option (coming soon)
+- Authentication status
 
 ---
 
@@ -292,10 +343,13 @@ A: Currently, this requires modifying the source code in `src/places.rs`. A UI f
 A: No, the app requires an internet connection to fetch data from iNaturalist.
 
 **Q: Is my iNaturalist account needed?**
-A: The app authenticates via OAuth, but for browsing public data, no account is strictly required. Adding identifications will require authentication.
+A: No! You can use the app without logging in to browse public data. However, features like adding identifications will require you to log in with your iNaturalist account.
+
+**Q: How do I log in?**
+A: Click the "🔒 Login" button in the top-right corner of the window. This will open your browser for OAuth authentication with iNaturalist. Once authenticated, you'll see "👤 Profile" in the top-right instead.
 
 **Q: Where is my data stored?**
-A: OAuth tokens are stored in your system's config directory. No observation data is stored locally.
+A: OAuth tokens are stored in your system's config directory. No observation data is stored locally. If you have a valid token saved, the app will automatically use it on startup.
 
 ### Identify View
 
@@ -347,7 +401,7 @@ A: Not yet, but exploring taxonomic relationships is a planned feature.
 ### Technical Questions
 
 **Q: Why is the app slow to start?**
-A: The app needs to initialize actors and authenticate with iNaturalist. Subsequent launches should be faster as tokens are cached.
+A: The app needs to initialize background actors for data fetching. If you have a saved authentication token, it will be loaded automatically. The app no longer blocks on authentication at startup.
 
 **Q: What do I do if the app crashes?**
 A: Check the TROUBLESHOOTING.md file for common issues and solutions. Run with `RUST_LOG=debug` to see detailed logs.
@@ -392,7 +446,9 @@ The iNaturalist Pro application is under active development. Upcoming features i
 - 🚧 API integration for Taxa view (in progress)
 - 📋 Image loading and caching (planned)
 - 📋 Identification submission (planned)
-- 📋 User authentication (planned)
+- ✅ Dynamic user authentication (login when needed)
+- 📋 Logout functionality (planned)
+- 📋 User profile information display (planned)
 - 📋 Customizable search locations (planned)
 - 📋 Export functionality (planned)
 - 📋 Keyboard shortcuts (planned)

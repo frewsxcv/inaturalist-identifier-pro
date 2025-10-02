@@ -37,9 +37,10 @@ The observation loading process has been changed from automatic to manual. Now, 
 1. **Check your internet connection**
    - The app requires internet access to fetch data from iNaturalist
 
-2. **Verify OAuth token**
-   - The app uses OAuth for authentication
-   - If you see authentication errors, the app may need to re-authenticate
+2. **Check authentication (if needed)**
+   - Authentication is now optional - the app will start without it
+   - If you have a saved token, it will be loaded automatically
+   - If the token is expired, you can log in again using the "🔒 Login" button
    - Token is stored in your system's config directory
 
 3. **Check logs**
@@ -49,6 +50,46 @@ The observation loading process has been changed from automatic to manual. Now, 
      ```bash
      RUST_LOG=debug cargo run --release
      ```
+
+### Authentication Issues
+
+**Problem: "🔒 Login" button doesn't respond**
+
+**Solution:**
+1. Check that your browser is set as the default application for HTTP links
+2. Look for an authentication window that may have opened in the background
+3. Check the terminal logs for any OAuth errors
+4. Ensure you have network connectivity to iNaturalist's servers
+
+**Problem: "Authentication failed" message**
+
+**Possible Causes:**
+- Network connectivity issues
+- Browser blocking the OAuth callback
+- Invalid or revoked credentials (internal issue)
+
+**Solution:**
+1. Try logging in again - click "🔒 Login" button
+2. If the browser window opens but authentication fails, check your iNaturalist account status
+3. Clear your token by deleting the config file and try again:
+   - Config location: `~/.config/inaturalist-identifier-pro/` (Linux/macOS) or `%APPDATA%\inaturalist-identifier-pro\` (Windows)
+
+**Problem: Token expired message**
+
+**Solution:**
+- Simply click the "🔒 Login" button again to get a fresh token
+- The app will automatically save the new token for future use
+
+**Problem: Can't access features that require authentication**
+
+**Symptoms:**
+- Unable to add identifications
+- Certain API calls failing
+
+**Solution:**
+- Check if you're logged in (look for "👤 Profile" in the top-right)
+- If you see "🔒 Login" instead, click it to authenticate
+- After logging in, try the feature again
 
 ### API Rate Limiting
 

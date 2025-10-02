@@ -50,7 +50,6 @@ struct TaxonDetails {
 
 #[derive(Debug, Clone)]
 struct AncestorTaxon {
-    id: i32,
     name: String,
     rank: String,
 }

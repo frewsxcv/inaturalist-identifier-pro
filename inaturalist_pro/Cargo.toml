@@ -18,7 +18,7 @@ geojson = { version = "0.24", features = ["geo-types"] }
 image = { version = "0.25", features = ["jpeg", "png"] }
 inaturalist = "0.8"
 inaturalist-fetch = { path = "../inaturalist-fetch" }
-inaturalist-oauth = "0.1"
+inaturalist-oauth = "0.2"
 ordered-float = { version = "5", features = ["serde"] }
 reqwest = "0.12"
 serde = { version = "1", features = ["derive"] }
@@ -27,3 +27,5 @@ tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = "0.3"
 confy = "1.0.0"
+opener = "0.8.3"
+oauth2 = "4.0.0"

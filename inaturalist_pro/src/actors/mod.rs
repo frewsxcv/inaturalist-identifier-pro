@@ -1,4 +1,5 @@
 pub mod identify_actor;
+pub mod oauth_actor;
 pub mod observation_loader_actor;
 pub mod observation_processor_actor;
 pub mod taxa_loader_actor;

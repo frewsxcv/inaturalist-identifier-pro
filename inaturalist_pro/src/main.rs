@@ -6,6 +6,7 @@ use actors::{
 use geohash_ext::GeohashGrid;
 use inaturalist::models::{Observation, ShowTaxon};
 use inaturalist_oauth::{Authenticator, TokenDetails};
+use oauth2::AuthorizationCode;
 use serde::{Deserialize, Serialize};
 use std::{error, sync};
 
@@ -45,6 +46,9 @@ pub enum AppMessage {
         observation_id: i32,
         taxon_tree: taxon_tree::TaxonTree,
     },
+    AuthenticationCodeReceived(AuthorizationCode),
+    Authenticated(String),
+    AuthError(String),
 }
 
 use std::sync::OnceLock;
@@ -60,27 +64,23 @@ type CurOperation = operations::TopImageScore;
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let mut cfg: MyConfig = confy::load("inaturalist-identifier-pro", None)?;
+    let cfg: MyConfig = confy::load("inaturalist-identifier-pro", None)?;
     let client_id = "h_gk-W1QMcTwTAH4pmo3TEitkJzeeZphpsj7TM_yq18".to_string();
     let client_secret = "RLRDkivCGzGMGqWrV4WHIA7NJ7CqL0nhQ5n9lbIipCw".to_string();
-    let authenticator = Authenticator::new(client_id, client_secret);
+    let _authenticator = Authenticator::new(client_id.clone(), client_secret.clone());
 
-    let token = if let Some(token) = cfg.token {
-        if token.expires_at < std::time::SystemTime::now() {
-            let new_token = authenticator.get_api_token().await?;
-            cfg.token = Some(new_token.clone());
-            confy::store("inaturalist-fetch", None, cfg.clone())?;
-            new_token
+    // Check if we have a valid token, but don't block on authentication
+    let api_token = if let Some(token) = cfg.token {
+        if token.expires_at >= std::time::SystemTime::now() {
+            Some(token.api_token)
         } else {
-            token
+            tracing::info!("Token expired, will need to re-authenticate");
+            None
         }
     } else {
-        let token = authenticator.get_api_token().await?;
-        cfg.token = Some(token.clone());
-        confy::store("inaturalist-fetch", None, cfg.clone())?;
-        token
+        tracing::info!("No token found, user can authenticate from the UI");
+        None
     };
-    let api_token = token.api_token;
 
     let grid = GeohashGrid::from_rect(places::nyc().clone(), 4);
 
@@ -91,7 +91,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let observation_loader_addr =
         ObservationLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
             let tx_app_message = tx_app_message.clone();
-            let api_token = api_token.clone();
+            let api_token = api_token.clone().unwrap_or_default();
             |_ctx| ObservationLoaderActor {
                 tx_app_message,
                 grid,
@@ -101,7 +101,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let addr = TaxonTreeBuilderActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
-        let api_token = api_token.clone();
+        let api_token = api_token.clone().unwrap_or_default();
         move |_ctx| TaxonTreeBuilderActor {
             tx_app_message,
             api_token,
@@ -111,7 +111,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let addr = ObservationProcessorActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
-        let api_token = api_token.clone();
+        let api_token = api_token.clone().unwrap_or_default();
         {
             |_ctx| ObservationProcessorActor {
                 tx_app_message,
@@ -124,7 +124,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let addr = IdentifyActor::start_in_arbiter(&Arbiter::new().handle(), {
         let _tx_app_message = tx_app_message.clone();
-        let api_token = api_token.clone();
+        let api_token = api_token.clone().unwrap_or_default();
         {
             |_ctx| IdentifyActor { api_token }
         }
@@ -133,7 +133,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let addr = TaxaLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
-        let api_token = api_token.clone();
+        let api_token = api_token.clone().unwrap_or_default();
         {
             |_ctx| TaxaLoaderActor {
                 tx_app_message,
@@ -153,6 +153,10 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             app.tx_app_message = tx_app_message;
             app.rx_app_message = rx_app_message;
             app.observation_loader_addr = Some(observation_loader_addr);
+            app.state.is_authenticated = api_token.is_some();
+            app.api_token = api_token;
+            app.client_id = Some(client_id);
+            app.client_secret = Some(client_secret);
             Ok(Box::new(app))
         }),
     )?;

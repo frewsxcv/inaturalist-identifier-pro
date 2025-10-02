@@ -4,6 +4,9 @@ A Rust native application for exploring and interacting with iNaturalist.
 
 ## Features
 
+### 🔒 Authentication
+Start using the app immediately without logging in! Browse public observations, explore taxa, and view user profiles. When you need features that require authentication (like adding identifications), simply click the "🔒 Login" button in the top-right corner. Your authentication token is securely saved and automatically loaded on subsequent launches.
+
 ### 🔍 Identify
 A powerful interface for identifying observations with computer vision scores and taxonomic information. Browse unidentified observations and help the community with identifications.
 
@@ -27,6 +30,19 @@ This is a Rust workspace with multiple crates. To build and run:
 ```bash
 cargo run --release
 ```
+
+## Quick Start
+
+1. Build and run the application:
+   ```bash
+   cargo run --release
+   ```
+
+2. The app will open immediately - no login required!
+
+3. Browse observations, explore taxa, and search users without authentication.
+
+4. When you need to add identifications or access authenticated features, click the "🔒 Login" button in the top-right corner.
 
 ## Architecture
 
