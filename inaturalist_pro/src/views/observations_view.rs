@@ -48,7 +48,6 @@ struct ObservationResult {
     user_login: String,
     observed_on: String,
     place: String,
-    image_url: Option<String>,
 }
 
 impl ObservationsView {
