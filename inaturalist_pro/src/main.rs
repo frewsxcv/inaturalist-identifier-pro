@@ -1,6 +1,6 @@
 use actix::{prelude::*, SystemRegistry};
 use actors::{
-    IdentifyActor, ObservationLoaderActor, ObservationProcessorActor, TaxaLoaderActor,
+    IdentifyActor, OauthActor, ObservationLoaderActor, ObservationProcessorActor, TaxaLoaderActor,
     TaxonTreeBuilderActor,
 };
 use geohash_ext::GeohashGrid;
@@ -145,6 +145,11 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     });
     SystemRegistry::set(addr);
 
+    let oauth_addr = OauthActor::start_in_arbiter(&Arbiter::new().handle(), {
+        let tx_app_message = tx_app_message.clone();
+        |_ctx| OauthActor::new(tx_app_message)
+    });
+
     eframe::run_native(
         "iNaturalist Pro",
         eframe::NativeOptions::default(),
@@ -153,6 +158,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             app.tx_app_message = tx_app_message;
             app.rx_app_message = rx_app_message;
             app.observation_loader_addr = Some(observation_loader_addr);
+            app.oauth_addr = oauth_addr;
             app.state.is_authenticated = api_token.is_some();
             app.api_token = api_token;
             app.client_id = Some(client_id);
