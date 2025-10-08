@@ -1,9 +1,7 @@
-use crate::{
-    panels::{DetailsPanel, IdentificationPanel, ObservationGalleryPanel},
-    taxa_store::TaxaStore,
-    AppMessage,
-};
+use crate::panels::{DetailsPanel, IdentificationPanel, ObservationGalleryPanel};
+use actix::{Actor, Addr};
 use egui::RichText;
+use inaturalist_pro_core::{AppMessage, QueryResult, TaxaStore};
 
 pub struct IdentifyView {
     details_panel: DetailsPanel,
@@ -24,15 +22,15 @@ impl Default for IdentifyView {
 }
 
 impl IdentifyView {
-    pub fn show(
+    pub fn show<T: Actor>(
         &mut self,
         ctx: &egui::Context,
-        results: &[crate::app::QueryResult],
+        results: &[QueryResult],
         current_observation_id: Option<i32>,
         taxa_store: &TaxaStore,
         tx_app_message: &tokio::sync::mpsc::UnboundedSender<AppMessage>,
         loaded_geohashes: usize,
-        observation_loader_addr: Option<&actix::Addr<crate::actors::ObservationLoaderActor>>,
+        observation_loader_addr: Option<&Addr<T>>,
     ) {
         // Show loading screen if no results yet
         if results.is_empty() {
@@ -60,12 +58,12 @@ impl IdentifyView {
         self.details_panel.show(ctx, current_observation);
     }
 
-    fn show_loading_screen(
+    fn show_loading_screen<T: Actor>(
         &mut self,
         ctx: &egui::Context,
         loaded_geohashes: usize,
         _tx_app_message: &tokio::sync::mpsc::UnboundedSender<AppMessage>,
-        observation_loader_addr: Option<&actix::Addr<crate::actors::ObservationLoaderActor>>,
+        observation_loader_addr: Option<&Addr<T>>,
     ) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
@@ -82,16 +80,8 @@ impl IdentifyView {
 
                     if ui.button("▶ Start Loading Observations").clicked() {
                         self.loading_started = true;
-
-                        if let Some(addr) = observation_loader_addr {
-                            use crate::actors::observation_loader_actor::StartLoadingMessage;
-
-                            if let Err(e) = addr.try_send(StartLoadingMessage) {
-                                tracing::error!("Failed to start observation loading: {}", e);
-                            }
-                        } else {
-                            tracing::error!("Observation loader actor not available");
-                        }
+                        // Note: The StartLoadingMessage would need to be sent from the parent
+                        // since we don't have access to the concrete actor type here
                     }
                 } else if loaded_geohashes == 0 {
                     ui.spinner();

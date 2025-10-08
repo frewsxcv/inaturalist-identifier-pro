@@ -1,5 +1,6 @@
-use crate::app::QueryResult;
 use crate::utils::to_original_image_url;
+
+use inaturalist_pro_core::QueryResult;
 
 pub struct ObservationGalleryWidget<'a> {
     pub results: &'a [QueryResult],

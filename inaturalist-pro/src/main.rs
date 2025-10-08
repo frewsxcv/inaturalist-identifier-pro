@@ -6,6 +6,8 @@ use actors::{
 use geohash_ext::GeohashGrid;
 use inaturalist::models::{Observation, ShowTaxon};
 use inaturalist_oauth::{Authenticator, TokenDetails};
+use inaturalist_pro_core::AppMessage;
+use inaturalist_pro_ui::Ui;
 use oauth2::AuthorizationCode;
 use serde::{Deserialize, Serialize};
 use std::{error, sync};
@@ -20,36 +22,12 @@ mod app;
 mod geohash_ext;
 mod geohash_observations;
 mod operations;
-mod panels;
 mod places;
-mod taxa_store;
-mod taxon_tree;
 mod utils;
-mod views;
-mod widgets;
 
 type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
 
 type ObservationId = i32;
-
-#[derive(Debug)]
-pub enum AppMessage {
-    Progress,
-    TaxonLoaded(Box<ShowTaxon>),
-    SkipCurrentObservation,
-    ObservationLoaded(Box<Observation>),
-    ComputerVisionScoreLoaded(
-        ObservationId,
-        Vec<inaturalist_fetch::ComputerVisionObservationScore>,
-    ),
-    TaxonTree {
-        observation_id: i32,
-        taxon_tree: taxon_tree::TaxonTree,
-    },
-    AuthenticationCodeReceived(AuthorizationCode),
-    Authenticated(String),
-    AuthError(String),
-}
 
 use std::sync::OnceLock;
 
@@ -163,6 +141,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             app.api_token = api_token;
             app.client_id = Some(client_id);
             app.client_secret = Some(client_secret);
+            app.ui = Ui::new(app.tx_app_message.clone());
             Ok(Box::new(app))
         }),
     )?;

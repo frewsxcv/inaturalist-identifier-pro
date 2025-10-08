@@ -10,7 +10,7 @@ impl TopPanel {
         auth_status_message: &mut Option<String>,
     ) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            egui::MenuBar::new().ui(ui, |ui| {
+            egui::menu::bar(ui, |ui| {
                 // Left side: File menu
                 ui.menu_button("File", |ui| {
                     if ui.button("Quit").clicked() {

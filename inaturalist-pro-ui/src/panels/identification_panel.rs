@@ -1,6 +1,5 @@
-use crate::{
-    app::QueryResult, taxa_store::TaxaStore, widgets::taxon_tree::TaxonTreeWidget, AppMessage,
-};
+use crate::widgets::taxon_tree::TaxonTreeWidget;
+use inaturalist_pro_core::{AppMessage, QueryResult, TaxaStore};
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Default)]
@@ -21,11 +20,11 @@ impl IdentificationPanel {
                 return;
             };
 
-            if query_result.taxon_tree.0.is_empty() {
+            if query_result.taxon_tree.nodes.is_empty() {
                 ui.spinner();
             } else {
                 let mut identified = false;
-                for node in query_result.taxon_tree.0.iter() {
+                for node in query_result.taxon_tree.nodes.values() {
                     ui.add(TaxonTreeWidget {
                         observation: &query_result.observation,
                         root_node: node,
@@ -35,7 +34,7 @@ impl IdentificationPanel {
                 }
                 if identified {
                     tx_app_message
-                        .send(crate::AppMessage::SkipCurrentObservation)
+                        .send(inaturalist_pro_core::AppMessage::SkipCurrentObservation)
                         .unwrap();
                 }
             }

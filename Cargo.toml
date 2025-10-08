@@ -2,6 +2,7 @@
 members = [
     "geo-ext",
     "inaturalist-fetch",
-    "inaturalist_pro",
+    "inaturalist-pro-ui",
+    "inaturalist-pro", "inaturalist-pro-core",
 ]
 resolver = "2"

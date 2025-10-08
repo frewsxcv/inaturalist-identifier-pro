@@ -1,55 +1,16 @@
-use crate::{
-    actors::taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor},
-    panels::TopPanel,
-    taxa_store::TaxaStore,
-    views::{IdentifyView, ObservationsView, TaxaView, UsersView},
-};
+use crate::actors::taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor};
 use actix::{Actor, SystemService};
 use inaturalist::models::{Observation, ShowTaxon};
 use inaturalist_oauth::{Authenticator, PkceVerifier};
+use inaturalist_pro_core::{taxon_tree, AppMessage, AppState, QueryResult, TaxaStore};
+use inaturalist_pro_ui::Ui;
 use oauth2::AuthorizationCode;
 
 type ObservationId = i32;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum AppView {
-    Identify,
-    Observations,
-    Users,
-    Taxa,
-}
-
-pub struct QueryResult {
-    pub observation: Observation,
-    pub scores: Option<Vec<inaturalist_fetch::ComputerVisionObservationScore>>,
-    pub taxon_tree: crate::taxon_tree::TaxonTree,
-}
-
-pub struct AppState {
-    pub loaded_geohashes: usize,
-    pub results: Vec<QueryResult>,
-    pub taxa_store: TaxaStore,
-    pub current_observation_id: Option<ObservationId>,
-    pub current_view: AppView,
-    pub is_authenticated: bool,
-    pub show_login_modal: bool,
-    pub auth_status_message: Option<String>,
-}
-
-struct AppPanels {
-    top: TopPanel,
-}
-
-struct AppViews {
-    identify: IdentifyView,
-    observations: ObservationsView,
-    users: UsersView,
-    taxa: TaxaView,
-}
-
 pub(crate) struct App {
-    pub tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
-    pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<crate::AppMessage>,
+    pub tx_app_message: tokio::sync::mpsc::UnboundedSender<AppMessage>,
+    pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<AppMessage>,
     pub observation_loader_addr:
         Option<actix::Addr<crate::actors::observation_loader_actor::ObservationLoaderActor>>,
     pub oauth_addr: actix::Addr<crate::actors::oauth_actor::OauthActor>,
@@ -58,8 +19,7 @@ pub(crate) struct App {
     pub client_secret: Option<String>,
     pub pkce_verifier: Option<PkceVerifier>,
     pub state: AppState,
-    views: AppViews,
-    panels: AppPanels,
+    pub ui: inaturalist_pro_ui::Ui<crate::actors::observation_loader_actor::ObservationLoaderActor>,
 }
 
 impl Default for App {
@@ -68,6 +28,10 @@ impl Default for App {
 
         let oauth_addr =
             crate::actors::oauth_actor::OauthActor::new(tx_app_message.clone()).start();
+
+        let ui = Ui::<crate::actors::observation_loader_actor::ObservationLoaderActor>::new(
+            tx_app_message.clone(),
+        );
 
         Self {
             tx_app_message,
@@ -79,57 +43,16 @@ impl Default for App {
             client_secret: None,
             pkce_verifier: None,
             state: AppState::default(),
-            views: AppViews::default(),
-            panels: AppPanels::default(),
-        }
-    }
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        Self {
-            loaded_geohashes: 0,
-            results: Vec::new(),
-            taxa_store: TaxaStore::default(),
-            current_observation_id: None,
-            current_view: AppView::Identify,
-            is_authenticated: false,
-            show_login_modal: false,
-            auth_status_message: None,
-        }
-    }
-}
-
-impl Default for AppViews {
-    fn default() -> Self {
-        Self {
-            identify: IdentifyView::default(),
-            observations: ObservationsView::default(),
-            users: UsersView::default(),
-            taxa: TaxaView::default(),
-        }
-    }
-}
-
-impl Default for AppPanels {
-    fn default() -> Self {
-        Self {
-            top: TopPanel::default(),
+            ui,
         }
     }
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui_extras::install_image_loaders(ctx);
-
         self.process_messages();
-        self.render_ui(ctx);
-
-        // Show login modal if needed
-        if self.state.show_login_modal {
-            self.show_login_modal(ctx);
-        }
+        self.ui
+            .update(ctx, &mut self.state, &self.observation_loader_addr);
     }
 }
 
@@ -161,7 +84,7 @@ impl<'a> MessageHandler<'a> {
         self.state.results.push(QueryResult {
             observation: *observation.clone(),
             scores: None,
-            taxon_tree: Default::default(),
+            taxon_tree: taxon_tree::TaxonTree::default(),
         });
     }
 
@@ -185,7 +108,7 @@ impl<'a> MessageHandler<'a> {
     fn handle_taxon_tree(
         &mut self,
         observation_id: ObservationId,
-        taxon_tree: crate::taxon_tree::TaxonTree,
+        taxon_tree: taxon_tree::TaxonTree,
     ) {
         for result in &mut self.state.results {
             if result.observation.id == Some(observation_id) {
@@ -260,36 +183,34 @@ impl App {
     fn process_messages(&mut self) {
         while let Ok(message) = self.rx_app_message.try_recv() {
             match message {
-                crate::AppMessage::Progress
-                | crate::AppMessage::TaxonLoaded(_)
-                | crate::AppMessage::ObservationLoaded(_)
-                | crate::AppMessage::ComputerVisionScoreLoaded(_, _)
-                | crate::AppMessage::TaxonTree { .. }
-                | crate::AppMessage::SkipCurrentObservation => {
+                AppMessage::Progress
+                | AppMessage::TaxonLoaded(_)
+                | AppMessage::ObservationLoaded(_)
+                | AppMessage::ComputerVisionScoreLoaded(_, _)
+                | AppMessage::TaxonTree { .. }
+                | AppMessage::SkipCurrentObservation => {
                     // Handle non-auth messages with MessageHandler
                     let mut handler = MessageHandler::new(&mut self.state);
                     match message {
-                        crate::AppMessage::Progress => handler.handle_progress(),
-                        crate::AppMessage::TaxonLoaded(taxon) => handler.handle_taxon_loaded(taxon),
-                        crate::AppMessage::ObservationLoaded(observation) => {
+                        AppMessage::Progress => handler.handle_progress(),
+                        AppMessage::TaxonLoaded(taxon) => handler.handle_taxon_loaded(taxon),
+                        AppMessage::ObservationLoaded(observation) => {
                             handler.handle_observation_loaded(observation)
                         }
-                        crate::AppMessage::ComputerVisionScoreLoaded(observation_id, scores) => {
+                        AppMessage::ComputerVisionScoreLoaded(observation_id, scores) => {
                             handler.handle_cv_scores(observation_id, scores);
                         }
-                        crate::AppMessage::TaxonTree {
+                        AppMessage::TaxonTree {
                             observation_id,
                             taxon_tree,
                         } => {
                             handler.handle_taxon_tree(observation_id, taxon_tree);
                         }
-                        crate::AppMessage::SkipCurrentObservation => {
-                            handler.handle_skip_observation()
-                        }
+                        AppMessage::SkipCurrentObservation => handler.handle_skip_observation(),
                         _ => {}
                     }
                 }
-                crate::AppMessage::Authenticated(token) => {
+                AppMessage::Authenticated(token) => {
                     tracing::info!("Authentication completed successfully");
                     self.api_token = Some(token);
                     self.state.is_authenticated = true;
@@ -297,107 +218,17 @@ impl App {
                     self.state.auth_status_message =
                         Some("Successfully authenticated!".to_string());
                 }
-                crate::AppMessage::AuthError(error) => {
+                AppMessage::AuthError(error) => {
                     tracing::error!("Authentication failed: {}", error);
                     self.state.auth_status_message =
                         Some(format!("Authentication failed: {}", error));
                 }
-                crate::AppMessage::AuthenticationCodeReceived(code) => {
+                AppMessage::AuthenticationCodeReceived(code) => {
                     self.exchange_code(code);
                 }
+                AppMessage::InitiateLogin => self.initiate_login(),
             }
         }
-    }
-
-    fn render_ui(&mut self, ctx: &egui::Context) {
-        self.panels.top.show(
-            ctx,
-            self.state.is_authenticated,
-            &mut self.state.show_login_modal,
-            &mut self.state.auth_status_message,
-        );
-
-        egui::SidePanel::left("navigation_panel")
-            .resizable(false)
-            .default_width(200.0)
-            .show(ctx, |ui| {
-                ui.heading("iNaturalist Pro");
-                ui.separator();
-
-                ui.selectable_value(
-                    &mut self.state.current_view,
-                    AppView::Identify,
-                    "🔍 Identify",
-                );
-                ui.selectable_value(
-                    &mut self.state.current_view,
-                    AppView::Observations,
-                    "📷 Observations",
-                );
-                ui.selectable_value(&mut self.state.current_view, AppView::Users, "👤 Users");
-                ui.selectable_value(&mut self.state.current_view, AppView::Taxa, "🌿 Taxa");
-            });
-
-        match self.state.current_view {
-            AppView::Identify => self.render_identify_view(ctx),
-            AppView::Observations => self.render_observations_view(ctx),
-            AppView::Users => self.render_users_view(ctx),
-            AppView::Taxa => self.render_taxa_view(ctx),
-        }
-    }
-
-    fn render_identify_view(&mut self, ctx: &egui::Context) {
-        self.views.identify.show(
-            ctx,
-            &self.state.results,
-            self.state.current_observation_id,
-            &self.state.taxa_store,
-            &self.tx_app_message,
-            self.state.loaded_geohashes,
-            self.observation_loader_addr.as_ref(),
-        );
-    }
-
-    fn render_observations_view(&mut self, ctx: &egui::Context) {
-        self.views.observations.show(ctx);
-    }
-
-    fn render_users_view(&mut self, ctx: &egui::Context) {
-        self.views.users.show(ctx);
-    }
-
-    fn render_taxa_view(&mut self, ctx: &egui::Context) {
-        self.views.taxa.show(ctx);
-    }
-
-    fn show_login_modal(&mut self, ctx: &egui::Context) {
-        egui::Window::new("Login to iNaturalist")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ctx, |ui| {
-                ui.label("To use features that require authentication,");
-                ui.label("you need to log in to your iNaturalist account.");
-                ui.add_space(10.0);
-
-                if let Some(msg) = &self.state.auth_status_message {
-                    ui.colored_label(egui::Color32::RED, msg);
-                    ui.add_space(10.0);
-                }
-
-                ui.horizontal(|ui| {
-                    if ui.button("Login").clicked() {
-                        self.initiate_login();
-                    }
-                    if ui.button("Cancel").clicked() {
-                        self.state.show_login_modal = false;
-                        self.state.auth_status_message = None;
-                    }
-                });
-
-                ui.add_space(10.0);
-                ui.label("Note: Login will open your browser for OAuth authentication.");
-            });
     }
 
     // NOTE: The AppMessage enum needs to be updated with AuthenticationCodeReceived
@@ -451,11 +282,11 @@ impl App {
             let authenticator = Authenticator::new(client_id, client_secret);
             match authenticator.listen_for_redirect() {
                 Ok(code) => {
-                    let _ = tx.send(crate::AppMessage::AuthenticationCodeReceived(code));
+                    let _ = tx.send(AppMessage::AuthenticationCodeReceived(code));
                 }
                 Err(e) => {
                     tracing::error!("Failed to listen for redirect: {}", e);
-                    let _ = tx.send(crate::AppMessage::AuthError(format!(
+                    let _ = tx.send(AppMessage::AuthError(format!(
                         "Login failed: {}. Please try again.",
                         e
                     )));

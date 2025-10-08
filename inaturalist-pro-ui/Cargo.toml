@@ -1,0 +1,16 @@
+[package]
+name = "inaturalist-pro-ui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = "0.32"
+egui = "0.32"
+egui_extras = "0.32"
+inaturalist-pro-core = { path = "../inaturalist-pro-core" }
+actix = "0.13"
+
+tokio = { version = "1", features = ["sync"] }
+tracing = "0.1"
+inaturalist = "0.8"
+colorous = "1"

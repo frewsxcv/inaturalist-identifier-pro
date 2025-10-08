@@ -1,5 +1,5 @@
-use crate::app::QueryResult;
 use crate::utils::to_original_image_url;
+use inaturalist_pro_core::QueryResult;
 
 #[derive(Default)]
 pub struct DetailsPanel;

@@ -1,4 +1,5 @@
-use crate::{app::QueryResult, widgets::observation_gallery::ObservationGalleryWidget};
+use crate::widgets::observation_gallery::ObservationGalleryWidget;
+use inaturalist_pro_core::QueryResult;
 
 #[derive(Default)]
 pub struct ObservationGalleryPanel;
