@@ -1,9 +1,7 @@
 use inaturalist::models::Observation;
-use std::error;
-
 use inaturalist_fetch::FetchComputerVisionError;
-
-use crate::AppMessage;
+use inaturalist_pro_core::AppMessage;
+use std::error;
 
 // const PLANTAE_ID: u32 = 47126;
 // const INSECTA_ID: u32 = 47158;
@@ -114,8 +112,8 @@ pub trait Operation {
 
     fn visit_observation(
         &mut self,
-        _observation: crate::Observation,
-        _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        _observation: Observation,
+        _tx_app_message: tokio::sync::mpsc::UnboundedSender<AppMessage>,
         _api_token: &str,
     ) -> Result<(), Box<dyn error::Error>> {
         Ok(())
@@ -135,8 +133,8 @@ pub struct NoOp(pub Vec<Observation>);
 impl Operation for NoOp {
     fn visit_observation(
         &mut self,
-        observation: crate::Observation,
-        _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        observation: Observation,
+        _tx_app_message: tokio::sync::mpsc::UnboundedSender<AppMessage>,
         _api_token: &str,
     ) -> Result<(), Box<dyn error::Error>> {
         self.0.push(observation);
@@ -253,8 +251,8 @@ impl Operation for TopImageScore {
 
     fn visit_observation(
         &mut self,
-        observation: crate::Observation,
-        tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        observation: Observation,
+        tx_app_message: tokio::sync::mpsc::UnboundedSender<AppMessage>,
         api_token: &str,
     ) -> Result<(), Box<dyn error::Error>> {
         tracing::info!("VISIT OBSERVATION");
@@ -304,8 +302,8 @@ pub struct PrintPlantae(pub Vec<Observation>);
 impl Operation for PrintPlantae {
     fn visit_observation(
         &mut self,
-        observation: crate::Observation,
-        _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        observation: Observation,
+        _tx_app_message: tokio::sync::mpsc::UnboundedSender<AppMessage>,
         _api_token: &str,
     ) -> Result<(), Box<dyn error::Error>> {
         if let Some(taxon) = &observation.taxon {
@@ -324,8 +322,8 @@ pub struct PrintAngiospermae(pub Vec<Observation>);
 impl Operation for PrintAngiospermae {
     fn visit_observation(
         &mut self,
-        observation: crate::Observation,
-        _tx_app_message: tokio::sync::mpsc::UnboundedSender<crate::AppMessage>,
+        observation: Observation,
+        _tx_app_message: tokio::sync::mpsc::UnboundedSender<AppMessage>,
         _api_token: &str,
     ) -> Result<(), Box<dyn error::Error>> {
         if let Some(taxon) = &observation.taxon {

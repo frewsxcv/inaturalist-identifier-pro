@@ -1,0 +1,18 @@
+[package]
+name = "inaturalist-pro-actors"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix = "0.13"
+confy = "0.6"
+futures = "0.3"
+inaturalist = "0.8"
+inaturalist-fetch = { path = "../inaturalist-fetch" }
+inaturalist-oauth = "0.2"
+inaturalist-pro-core = { path = "../inaturalist-pro-core" }
+inaturalist-pro-geo = { path = "../inaturalist-pro-geo" }
+oauth2 = "4.0.0"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["sync", "rt"] }
+tracing = "0.1"

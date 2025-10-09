@@ -1,0 +1,18 @@
+[package]
+name = "inaturalist-pro-geo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+arrayvec = "0.7"
+futures = "0.3"
+genawaiter = "0.99"
+geo = { version = "0.31", features = ["use-serde"] }
+geo-ext = { path = "../geo-ext" }
+geohash = "0.13"
+geojson = { version = "0.24", features = ["geo-types"] }
+inaturalist = "0.8"
+inaturalist-fetch = { path = "../inaturalist-fetch" }
+ordered-float = { version = "5", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+tracing = "0.1"

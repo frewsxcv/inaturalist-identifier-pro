@@ -6,7 +6,8 @@ edition = "2024"
 [dependencies]
 eframe = "0.32"
 egui = "0.32"
-egui_extras = "0.32"
+egui_extras = { version = "0.32", features = ["all_loaders"] }
+image = { version = "0.25", features = ["jpeg", "png"] }
 inaturalist-pro-core = { path = "../inaturalist-pro-core" }
 actix = "0.13"
 

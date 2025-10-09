@@ -1,7 +1,9 @@
-use crate::actors::taxon_tree_builder_actor::{BuildTaxonTreeMessage, TaxonTreeBuilderActor};
 use actix::{Actor, SystemService};
 use inaturalist::models::{Observation, ShowTaxon};
 use inaturalist_oauth::{Authenticator, PkceVerifier};
+use inaturalist_pro_actors::{
+    BuildTaxonTreeMessage, ExchangeCode, ObservationLoaderActor, TaxonTreeBuilderActor,
+};
 use inaturalist_pro_core::{taxon_tree, AppMessage, AppState, QueryResult, TaxaStore};
 use inaturalist_pro_ui::Ui;
 use oauth2::AuthorizationCode;
@@ -11,27 +13,23 @@ type ObservationId = i32;
 pub(crate) struct App {
     pub tx_app_message: tokio::sync::mpsc::UnboundedSender<AppMessage>,
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<AppMessage>,
-    pub observation_loader_addr:
-        Option<actix::Addr<crate::actors::observation_loader_actor::ObservationLoaderActor>>,
-    pub oauth_addr: actix::Addr<crate::actors::oauth_actor::OauthActor>,
+    pub observation_loader_addr: Option<actix::Addr<ObservationLoaderActor>>,
+    pub oauth_addr: actix::Addr<inaturalist_pro_actors::OauthActor>,
     pub api_token: Option<String>,
     pub client_id: Option<String>,
     pub client_secret: Option<String>,
     pub pkce_verifier: Option<PkceVerifier>,
     pub state: AppState,
-    pub ui: inaturalist_pro_ui::Ui<crate::actors::observation_loader_actor::ObservationLoaderActor>,
+    pub ui: Ui<ObservationLoaderActor>,
 }
 
 impl Default for App {
     fn default() -> Self {
         let (tx_app_message, rx_app_message) = tokio::sync::mpsc::unbounded_channel();
 
-        let oauth_addr =
-            crate::actors::oauth_actor::OauthActor::new(tx_app_message.clone()).start();
+        let oauth_addr = inaturalist_pro_actors::OauthActor::new(tx_app_message.clone()).start();
 
-        let ui = Ui::<crate::actors::observation_loader_actor::ObservationLoaderActor>::new(
-            tx_app_message.clone(),
-        );
+        let ui = Ui::<ObservationLoaderActor>::new(tx_app_message.clone());
 
         Self {
             tx_app_message,
@@ -231,8 +229,6 @@ impl App {
         }
     }
 
-    // NOTE: The AppMessage enum needs to be updated with AuthenticationCodeReceived
-    // in lib.rs for this to compile.
     fn initiate_login(&mut self) {
         let client_id = match &self.client_id {
             Some(id) => id.clone(),
@@ -303,12 +299,11 @@ impl App {
         self.state.auth_status_message =
             Some("Authentication successful, fetching API token...".to_string());
 
-        self.oauth_addr
-            .do_send(crate::actors::oauth_actor::ExchangeCode {
-                code,
-                client_id,
-                client_secret,
-                pkce_verifier,
-            });
+        self.oauth_addr.do_send(ExchangeCode {
+            code,
+            client_id,
+            client_secret,
+            pkce_verifier,
+        });
     }
 }

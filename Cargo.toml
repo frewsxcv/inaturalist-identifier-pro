@@ -2,7 +2,11 @@
 members = [
     "geo-ext",
     "inaturalist-fetch",
+    "inaturalist-pro-actors",
+    "inaturalist-pro-config",
+    "inaturalist-pro-core",
+    "inaturalist-pro-geo",
     "inaturalist-pro-ui",
-    "inaturalist-pro", "inaturalist-pro-core",
+    "inaturalist-pro",
 ]
 resolver = "2"

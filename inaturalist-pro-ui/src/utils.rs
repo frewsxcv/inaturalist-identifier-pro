@@ -9,7 +9,7 @@ use std::borrow::Cow;
 /// # Examples
 ///
 /// ```
-/// use inaturalist_pro::utils::to_original_image_url;
+/// use inaturalist_pro_ui::utils::to_original_image_url;
 ///
 /// let square_url = "https://static.inaturalist.org/photos/117822320/square.jpg";
 /// let original_url = to_original_image_url(square_url);

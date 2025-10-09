@@ -1,39 +1,28 @@
 use actix::{prelude::*, SystemRegistry};
-use actors::{
+use inaturalist_oauth::Authenticator;
+use inaturalist_pro_actors::{
     IdentifyActor, OauthActor, ObservationLoaderActor, ObservationProcessorActor, TaxaLoaderActor,
     TaxonTreeBuilderActor,
 };
-use geohash_ext::GeohashGrid;
-use inaturalist::models::{Observation, ShowTaxon};
-use inaturalist_oauth::{Authenticator, TokenDetails};
+use inaturalist_pro_config::Config;
 use inaturalist_pro_core::AppMessage;
+use inaturalist_pro_geo::{places, GeohashGrid};
 use inaturalist_pro_ui::Ui;
-use oauth2::AuthorizationCode;
-use serde::{Deserialize, Serialize};
 use std::{error, sync};
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-struct MyConfig {
-    token: Option<TokenDetails>,
-}
-
-mod actors;
 mod app;
-mod geohash_ext;
-mod geohash_observations;
 mod operations;
-mod places;
 mod utils;
 
-type Rect = geo::Rect<ordered_float::OrderedFloat<f64>>;
+use operations::Operation;
 
 type ObservationId = i32;
 
 use std::sync::OnceLock;
 
-static FETCH_SOFT_LIMIT_CELL: OnceLock<sync::atomic::AtomicI32> = OnceLock::new();
-fn fetch_soft_limit() -> &'static sync::atomic::AtomicI32 {
-    FETCH_SOFT_LIMIT_CELL.get_or_init(|| sync::atomic::AtomicI32::new(30))
+static FETCH_SOFT_LIMIT_CELL: OnceLock<sync::Arc<sync::atomic::AtomicI32>> = OnceLock::new();
+fn fetch_soft_limit() -> &'static sync::Arc<sync::atomic::AtomicI32> {
+    FETCH_SOFT_LIMIT_CELL.get_or_init(|| sync::Arc::new(sync::atomic::AtomicI32::new(30)))
 }
 
 type CurOperation = operations::TopImageScore;
@@ -42,23 +31,16 @@ type CurOperation = operations::TopImageScore;
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
 
-    let cfg: MyConfig = confy::load("inaturalist-identifier-pro", None)?;
+    let cfg = Config::load()?;
     let client_id = "h_gk-W1QMcTwTAH4pmo3TEitkJzeeZphpsj7TM_yq18".to_string();
     let client_secret = "RLRDkivCGzGMGqWrV4WHIA7NJ7CqL0nhQ5n9lbIipCw".to_string();
-    let _authenticator = Authenticator::new(client_id.clone(), client_secret.clone());
 
-    // Check if we have a valid token, but don't block on authentication
-    let api_token = if let Some(token) = cfg.token {
-        if token.expires_at >= std::time::SystemTime::now() {
-            Some(token.api_token)
-        } else {
-            tracing::info!("Token expired, will need to re-authenticate");
-            None
-        }
-    } else {
-        tracing::info!("No token found, user can authenticate from the UI");
-        None
-    };
+    // Get the API token if valid, otherwise None
+    let api_token = cfg.get_api_token();
+
+    if api_token.is_none() {
+        tracing::info!("No valid token found, user can authenticate from the UI");
+    }
 
     let grid = GeohashGrid::from_rect(places::nyc().clone(), 4);
 
@@ -70,10 +52,14 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         ObservationLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
             let tx_app_message = tx_app_message.clone();
             let api_token = api_token.clone().unwrap_or_default();
+            let request = CurOperation::request();
+            let soft_limit = fetch_soft_limit().clone();
             |_ctx| ObservationLoaderActor {
                 tx_app_message,
                 grid,
                 api_token,
+                request,
+                soft_limit,
             }
         });
 
@@ -93,7 +79,6 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
         {
             |_ctx| ObservationProcessorActor {
                 tx_app_message,
-                operation,
                 api_token,
             }
         }
