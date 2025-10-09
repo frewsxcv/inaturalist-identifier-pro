@@ -77,6 +77,7 @@ impl Ui {
             state.is_authenticated,
             &mut state.show_login_modal,
             &mut state.auth_status_message,
+            &state.current_user,
         );
 
         egui::SidePanel::left("navigation_panel")

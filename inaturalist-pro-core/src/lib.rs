@@ -1,4 +1,4 @@
-use inaturalist::models::{Observation, ObservationTaxon, ShowTaxon};
+use inaturalist::models::{Observation, ObservationTaxon, ShowTaxon, User};
 use oauth2::AuthorizationCode;
 use serde::{Deserialize, Serialize};
 use std::collections;
@@ -95,6 +95,7 @@ pub struct AppState {
     pub is_authenticated: bool,
     pub show_login_modal: bool,
     pub auth_status_message: Option<String>,
+    pub current_user: Option<User>,
 }
 
 impl Default for AppState {
@@ -108,6 +109,7 @@ impl Default for AppState {
             is_authenticated: false,
             show_login_modal: false,
             auth_status_message: None,
+            current_user: None,
         }
     }
 }
@@ -132,4 +134,5 @@ pub enum AppMessage {
     AuthError(String),
     InitiateLogin,
     StartLoadingObservations,
+    UserLoaded(User),
 }

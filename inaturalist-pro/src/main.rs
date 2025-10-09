@@ -1,8 +1,8 @@
 use actix::{prelude::*, SystemRegistry};
 use inaturalist_oauth::Authenticator;
 use inaturalist_pro_actors::{
-    IdentifyActor, OauthActor, ObservationLoaderActor, ObservationProcessorActor, TaxaLoaderActor,
-    TaxonTreeBuilderActor,
+    FetchCurrentUserMessage, IdentifyActor, OauthActor, ObservationLoaderActor,
+    ObservationProcessorActor, TaxaLoaderActor, TaxonTreeBuilderActor, UserLoaderActor,
 };
 use inaturalist_pro_config::Config;
 use inaturalist_pro_core::AppMessage;
@@ -30,6 +30,8 @@ type CurOperation = operations::TopImageScore;
 #[actix::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
     tracing_subscriber::fmt::init();
+
+    tracing::info!("Starting iNaturalist Pro...");
 
     let cfg = Config::load()?;
     let client_id = "h_gk-W1QMcTwTAH4pmo3TEitkJzeeZphpsj7TM_yq18".to_string();
@@ -108,6 +110,15 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     });
     SystemRegistry::set(addr);
 
+    let user_loader_addr = UserLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
+        let tx_app_message = tx_app_message.clone();
+        let api_token = api_token.clone().unwrap_or_default();
+        |_ctx| UserLoaderActor {
+            tx_app_message,
+            api_token,
+        }
+    });
+
     let oauth_addr = OauthActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
         |_ctx| OauthActor::new(tx_app_message)
@@ -121,8 +132,18 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             app.tx_app_message = tx_app_message;
             app.rx_app_message = rx_app_message;
             app.observation_loader_addr = Some(observation_loader_addr);
+            app.user_loader_addr = Some(user_loader_addr.clone());
             app.oauth_addr = oauth_addr;
             app.state.is_authenticated = api_token.is_some();
+
+            // Fetch user info if already authenticated
+            if api_token.is_some() {
+                tracing::info!("User is already authenticated, fetching user info...");
+                user_loader_addr.do_send(FetchCurrentUserMessage);
+            } else {
+                tracing::info!("User is not authenticated");
+            }
+
             app.api_token = api_token;
             app.client_id = Some(client_id);
             app.client_secret = Some(client_secret);

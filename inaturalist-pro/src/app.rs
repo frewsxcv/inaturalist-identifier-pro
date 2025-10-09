@@ -2,8 +2,8 @@ use actix::{Actor, SystemService};
 use inaturalist::models::{Observation, ShowTaxon};
 use inaturalist_oauth::{Authenticator, PkceVerifier};
 use inaturalist_pro_actors::{
-    BuildTaxonTreeMessage, ExchangeCode, ObservationLoaderActor, StartLoadingMessage,
-    TaxonTreeBuilderActor,
+    BuildTaxonTreeMessage, ExchangeCode, FetchCurrentUserMessage, ObservationLoaderActor,
+    StartLoadingMessage, TaxonTreeBuilderActor, UserLoaderActor,
 };
 use inaturalist_pro_core::{taxon_tree, AppMessage, AppState, QueryResult, TaxaStore};
 use inaturalist_pro_ui::Ui;
@@ -15,6 +15,7 @@ pub(crate) struct App {
     pub tx_app_message: tokio::sync::mpsc::UnboundedSender<AppMessage>,
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<AppMessage>,
     pub observation_loader_addr: Option<actix::Addr<ObservationLoaderActor>>,
+    pub user_loader_addr: Option<actix::Addr<UserLoaderActor>>,
     pub oauth_addr: actix::Addr<inaturalist_pro_actors::OauthActor>,
     pub api_token: Option<String>,
     pub client_id: Option<String>,
@@ -36,6 +37,7 @@ impl Default for App {
             tx_app_message,
             rx_app_message,
             observation_loader_addr: None,
+            user_loader_addr: None,
             oauth_addr,
             api_token: None,
             client_id: None,
@@ -216,11 +218,16 @@ impl App {
                 }
                 AppMessage::Authenticated(token) => {
                     tracing::info!("Authentication completed successfully");
-                    self.api_token = Some(token);
+                    self.api_token = Some(token.clone());
                     self.state.is_authenticated = true;
                     self.state.show_login_modal = false;
                     self.state.auth_status_message =
                         Some("Successfully authenticated!".to_string());
+
+                    // Fetch user info
+                    if let Some(addr) = &self.user_loader_addr {
+                        addr.do_send(FetchCurrentUserMessage);
+                    }
                 }
                 AppMessage::AuthError(error) => {
                     tracing::error!("Authentication failed: {}", error);
@@ -231,6 +238,13 @@ impl App {
                     self.exchange_code(code);
                 }
                 AppMessage::InitiateLogin => self.initiate_login(),
+                AppMessage::UserLoaded(user) => {
+                    tracing::info!(
+                        "User info loaded: {}",
+                        user.login.as_ref().map(|s| s.as_str()).unwrap_or("unknown")
+                    );
+                    self.state.current_user = Some(user);
+                }
             }
         }
     }

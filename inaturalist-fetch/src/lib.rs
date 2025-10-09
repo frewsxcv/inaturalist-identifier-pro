@@ -560,3 +560,63 @@ pub async fn identify(
     )
     .await
 }
+
+/// Fetches the currently authenticated user's information from the iNaturalist API.
+///
+/// # Arguments
+///
+/// * `api_token` - The API token for authentication
+///
+/// # Returns
+///
+/// Returns a `Result` containing the `User` on success, or an error on failure.
+pub async fn fetch_current_user(
+    api_token: &str,
+) -> Result<inaturalist::models::User, Box<dyn std::error::Error>> {
+    tracing::info!("Fetching current user info from API...");
+
+    inaturalist_rate_limiter().until_ready().await;
+
+    let client = reqwest::Client::new();
+    let url = "https://api.inaturalist.org/v1/users/me";
+
+    tracing::info!("Making request to: {}", url);
+
+    let response = client
+        .get(url)
+        .header("Authorization", api_token)
+        .send()
+        .await?;
+
+    let status = response.status();
+    tracing::info!("Response status: {}", status);
+
+    if !status.is_success() {
+        let error_text = response.text().await?;
+        tracing::error!("API error response: {}", error_text);
+        return Err(format!("API returned status {}: {}", status, error_text).into());
+    }
+
+    let json: serde_json::Value = response.json().await?;
+    tracing::info!("Response JSON received");
+
+    if let Some(results) = json.get("results").and_then(|r| r.as_array()) {
+        tracing::info!("Found {} results", results.len());
+
+        if let Some(user_json) = results.first() {
+            tracing::debug!("User JSON: {}", user_json);
+
+            let user: inaturalist::models::User = serde_json::from_value(user_json.clone())?;
+            tracing::info!(
+                "Successfully loaded user: {}",
+                user.login.as_ref().map(|s| s.as_str()).unwrap_or("unknown")
+            );
+
+            return Ok(user);
+        } else {
+            return Err("Results array is empty".into());
+        }
+    } else {
+        return Err("No 'results' field found in response".into());
+    }
+}
