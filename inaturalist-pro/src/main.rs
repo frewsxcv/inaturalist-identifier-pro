@@ -12,7 +12,6 @@ use std::{error, sync};
 
 mod app;
 mod operations;
-mod utils;
 
 use operations::Operation;
 
