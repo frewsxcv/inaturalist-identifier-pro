@@ -1,8 +1,8 @@
 use actix::{prelude::*, SystemRegistry};
 use inaturalist_oauth::Authenticator;
 use inaturalist_pro_actors::{
-    FetchCurrentUserMessage, IdentifyActor, OauthActor, ObservationLoaderActor,
-    ObservationProcessorActor, TaxaLoaderActor, TaxonTreeBuilderActor, UserLoaderActor,
+    ApiFetchCurrentUserMessage, ApiLoaderActor, IdentifyActor, OauthActor,
+    ObservationProcessorActor, TaxonTreeBuilderActor,
 };
 use inaturalist_pro_config::Config;
 use inaturalist_pro_core::AppMessage;
@@ -50,20 +50,10 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let (tx_app_message, rx_app_message) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
 
-    let observation_loader_addr =
-        ObservationLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
-            let tx_app_message = tx_app_message.clone();
-            let api_token = api_token.clone().unwrap_or_default();
-            let request = CurOperation::request();
-            let soft_limit = fetch_soft_limit().clone();
-            |_ctx| ObservationLoaderActor {
-                tx_app_message,
-                grid,
-                api_token,
-                request,
-                soft_limit,
-            }
-        });
+    // Store these for later use with ApiLoaderActor
+    let observation_grid = grid;
+    let observation_request = CurOperation::request();
+    let observation_soft_limit = fetch_soft_limit().clone();
 
     let addr = TaxonTreeBuilderActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
@@ -96,28 +86,20 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     });
     SystemRegistry::set(addr);
 
-    let addr = TaxaLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
+    // Consolidated API loader actor
+    let api_loader_addr = ApiLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
         let api_token = api_token.clone().unwrap_or_default();
-        {
-            |_ctx| TaxaLoaderActor {
-                tx_app_message,
-                loaded: Default::default(),
-                to_load: Default::default(),
-                api_token,
-            }
-        }
-    });
-    SystemRegistry::set(addr);
-
-    let user_loader_addr = UserLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
-        let tx_app_message = tx_app_message.clone();
-        let api_token = api_token.clone().unwrap_or_default();
-        |_ctx| UserLoaderActor {
+        |_ctx| ApiLoaderActor {
             tx_app_message,
             api_token,
+            taxa_to_load: Default::default(),
+            taxa_loaded: Default::default(),
+            pending_requests: Default::default(),
+            is_processing: false,
         }
     });
+    SystemRegistry::set(api_loader_addr.clone());
 
     let oauth_addr = OauthActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
@@ -131,15 +113,17 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             let mut app = crate::app::App::default();
             app.tx_app_message = tx_app_message;
             app.rx_app_message = rx_app_message;
-            app.observation_loader_addr = Some(observation_loader_addr);
-            app.user_loader_addr = Some(user_loader_addr.clone());
+            app.api_loader_addr = Some(api_loader_addr.clone());
+            app.observation_grid = Some(observation_grid);
+            app.observation_request = Some(observation_request);
+            app.observation_soft_limit = Some(observation_soft_limit);
             app.oauth_addr = oauth_addr;
             app.state.is_authenticated = api_token.is_some();
 
             // Fetch user info if already authenticated
             if api_token.is_some() {
                 tracing::info!("User is already authenticated, fetching user info...");
-                user_loader_addr.do_send(FetchCurrentUserMessage);
+                api_loader_addr.do_send(ApiFetchCurrentUserMessage);
             } else {
                 tracing::info!("User is not authenticated");
             }

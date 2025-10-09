@@ -1,4 +1,4 @@
-use crate::taxa_loader_actor::{LoadTaxonMessage, TaxaLoaderActor};
+use crate::{ApiLoadTaxonMessage, ApiLoaderActor};
 
 use actix::prelude::*;
 
@@ -117,7 +117,7 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
                     current_parent_id = Some(taxon_id);
 
                     if let Err(e) =
-                        TaxaLoaderActor::from_registry().try_send(LoadTaxonMessage(taxon_id))
+                        ApiLoaderActor::from_registry().try_send(ApiLoadTaxonMessage(taxon_id))
                     {
                         tracing::warn!("Failed to send LoadTaxonMessage: {}", e);
                     }

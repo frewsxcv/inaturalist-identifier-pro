@@ -1,4 +1,4 @@
-use crate::actors::taxa_loader_actor::{LoadTaxonMessage, TaxaLoaderActor};
+use inaturalist_pro_actors::{ApiLoadTaxonMessage, ApiLoaderActor};
 
 use actix::prelude::*;
 
@@ -97,8 +97,8 @@ impl Handler<BuildTaxonTreeMessage> for TaxonTreeBuilderActor {
 
                     current_parent_id = Some(taxon_id);
 
-                    TaxaLoaderActor::from_registry()
-                        .try_send(LoadTaxonMessage(taxon_id))
+                    ApiLoaderActor::from_registry()
+                        .try_send(ApiLoadTaxonMessage(taxon_id))
                         .unwrap();
                 }
             }

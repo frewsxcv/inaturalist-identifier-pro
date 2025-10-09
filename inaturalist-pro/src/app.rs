@@ -2,8 +2,8 @@ use actix::{Actor, SystemService};
 use inaturalist::models::{Observation, ShowTaxon};
 use inaturalist_oauth::{Authenticator, PkceVerifier};
 use inaturalist_pro_actors::{
-    BuildTaxonTreeMessage, ExchangeCode, FetchCurrentUserMessage, ObservationLoaderActor,
-    StartLoadingMessage, TaxonTreeBuilderActor, UserLoaderActor,
+    ApiFetchCurrentUserMessage, ApiLoaderActor, BuildTaxonTreeMessage, ExchangeCode,
+    StartLoadingObservationsMessage, TaxonTreeBuilderActor,
 };
 use inaturalist_pro_core::{taxon_tree, AppMessage, AppState, QueryResult, TaxaStore};
 use inaturalist_pro_ui::Ui;
@@ -14,8 +14,10 @@ type ObservationId = i32;
 pub(crate) struct App {
     pub tx_app_message: tokio::sync::mpsc::UnboundedSender<AppMessage>,
     pub rx_app_message: tokio::sync::mpsc::UnboundedReceiver<AppMessage>,
-    pub observation_loader_addr: Option<actix::Addr<ObservationLoaderActor>>,
-    pub user_loader_addr: Option<actix::Addr<UserLoaderActor>>,
+    pub api_loader_addr: Option<actix::Addr<ApiLoaderActor>>,
+    pub observation_grid: Option<inaturalist_pro_geo::GeohashGrid>,
+    pub observation_request: Option<inaturalist::apis::observations_api::ObservationsGetParams>,
+    pub observation_soft_limit: Option<std::sync::Arc<std::sync::atomic::AtomicI32>>,
     pub oauth_addr: actix::Addr<inaturalist_pro_actors::OauthActor>,
     pub api_token: Option<String>,
     pub client_id: Option<String>,
@@ -36,8 +38,10 @@ impl Default for App {
         Self {
             tx_app_message,
             rx_app_message,
-            observation_loader_addr: None,
-            user_loader_addr: None,
+            api_loader_addr: None,
+            observation_grid: None,
+            observation_request: None,
+            observation_soft_limit: None,
             oauth_addr,
             api_token: None,
             client_id: None,
@@ -209,8 +213,17 @@ impl App {
                         }
                         AppMessage::SkipCurrentObservation => handler.handle_skip_observation(),
                         AppMessage::StartLoadingObservations => {
-                            if let Some(addr) = &self.observation_loader_addr {
-                                addr.do_send(StartLoadingMessage);
+                            if let (Some(addr), Some(grid), Some(request), Some(soft_limit)) = (
+                                &self.api_loader_addr,
+                                &self.observation_grid,
+                                &self.observation_request,
+                                &self.observation_soft_limit,
+                            ) {
+                                addr.do_send(StartLoadingObservationsMessage {
+                                    grid: grid.clone(),
+                                    request: request.clone(),
+                                    soft_limit: soft_limit.clone(),
+                                });
                             }
                         }
                         _ => {}
@@ -225,8 +238,8 @@ impl App {
                         Some("Successfully authenticated!".to_string());
 
                     // Fetch user info
-                    if let Some(addr) = &self.user_loader_addr {
-                        addr.do_send(FetchCurrentUserMessage);
+                    if let Some(addr) = &self.api_loader_addr {
+                        addr.do_send(ApiFetchCurrentUserMessage);
                     }
                 }
                 AppMessage::AuthError(error) => {
