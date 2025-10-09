@@ -100,7 +100,7 @@ impl ObservationsView {
 
                 // Quality grade
                 ui.label("Quality:");
-                egui::ComboBox::from_id_source("quality_grade_combo")
+                egui::ComboBox::from_id_salt("quality_grade_combo")
                     .selected_text(format!("{:?}", self.quality_grade))
                     .show_ui(ui, |ui| {
                         ui.selectable_value(&mut self.quality_grade, QualityGrade::Any, "Any");
@@ -124,7 +124,7 @@ impl ObservationsView {
 
                 // Identified filter
                 ui.label("Identified:");
-                egui::ComboBox::from_id_source("identified_combo")
+                egui::ComboBox::from_id_salt("identified_combo")
                     .selected_text(format!("{:?}", self.identified))
                     .show_ui(ui, |ui| {
                         ui.selectable_value(&mut self.identified, IdentifiedFilter::Any, "Any");

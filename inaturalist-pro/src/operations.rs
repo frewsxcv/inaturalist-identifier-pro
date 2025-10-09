@@ -110,6 +110,7 @@ pub trait Operation {
         }
     }
 
+    #[allow(dead_code)]
     fn visit_observation(
         &mut self,
         _observation: Observation,

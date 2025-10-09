@@ -5,7 +5,7 @@ use inaturalist_pro_actors::{
     ApiFetchCurrentUserMessage, ApiLoaderActor, BuildTaxonTreeMessage, ExchangeCode,
     StartLoadingObservationsMessage, TaxonTreeBuilderActor,
 };
-use inaturalist_pro_core::{taxon_tree, AppMessage, AppState, QueryResult, TaxaStore};
+use inaturalist_pro_core::{taxon_tree, AppMessage, AppState, QueryResult};
 use inaturalist_pro_ui::Ui;
 use oauth2::AuthorizationCode;
 

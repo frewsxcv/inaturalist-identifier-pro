@@ -1,8 +1,5 @@
-use egui::{Sense, Vec2};
 use inaturalist::models::Observation;
 use inaturalist_pro_core::{TaxaStore, taxon_tree::TaxonNode};
-
-const MAX_SCORE: f64 = 100.;
 
 pub struct TaxonTreeWidget<'a> {
     pub observation: &'a Observation,

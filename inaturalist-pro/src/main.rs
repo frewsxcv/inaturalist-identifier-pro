@@ -1,5 +1,5 @@
 use actix::{prelude::*, SystemRegistry};
-use inaturalist_oauth::Authenticator;
+
 use inaturalist_pro_actors::{
     ApiFetchCurrentUserMessage, ApiLoaderActor, IdentifyActor, OauthActor,
     ObservationProcessorActor, TaxonTreeBuilderActor,
@@ -14,8 +14,6 @@ mod app;
 mod operations;
 
 use operations::Operation;
-
-type ObservationId = i32;
 
 use std::sync::OnceLock;
 
@@ -45,7 +43,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
 
     let grid = GeohashGrid::from_rect(places::nyc().clone(), 4);
 
-    let operation = CurOperation::default();
+    let _operation = CurOperation::default();
 
     let (tx_app_message, rx_app_message) = tokio::sync::mpsc::unbounded_channel::<AppMessage>();
 

@@ -84,7 +84,7 @@ impl TaxaView {
 
         ui.horizontal(|ui| {
             ui.label("Rank:");
-            egui::ComboBox::from_id_source("rank_filter_combo")
+            egui::ComboBox::from_id_salt("rank_filter_combo")
                 .selected_text(format!("{:?}", self.rank_filter))
                 .show_ui(ui, |ui| {
                     ui.selectable_value(&mut self.rank_filter, TaxonRank::Any, "Any");

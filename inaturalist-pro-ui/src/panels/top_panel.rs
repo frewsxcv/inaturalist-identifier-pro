@@ -13,7 +13,7 @@ impl TopPanel {
         current_user: &Option<User>,
     ) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
                 // Left side: File menu
                 ui.menu_button("File", |ui| {
                     if ui.button("Quit").clicked() {
