@@ -10,10 +10,10 @@ use crate::{
     panels::TopPanel,
     views::{IdentifyView, ObservationsView, TaxaView, UsersView},
 };
-use actix::{Actor, Addr};
+
 use eframe::egui;
 use inaturalist_pro_core::{AppMessage, AppState, AppView};
-use std::marker::PhantomData;
+
 use tokio::sync::mpsc::UnboundedSender;
 
 struct AppPanels {
@@ -46,44 +46,32 @@ impl Default for AppViews {
     }
 }
 
-pub struct Ui<T: Actor> {
+pub struct Ui {
     views: AppViews,
     panels: AppPanels,
     tx_app_message: UnboundedSender<AppMessage>,
-    _phantom: PhantomData<T>,
 }
 
-impl<T: Actor> Ui<T> {
+impl Ui {
     pub fn new(tx_app_message: UnboundedSender<AppMessage>) -> Self {
         Self {
             views: AppViews::default(),
             panels: AppPanels::default(),
             tx_app_message,
-            _phantom: PhantomData,
         }
     }
 
-    pub fn update(
-        &mut self,
-        ctx: &egui::Context,
-        state: &mut AppState,
-        observation_loader_addr: &Option<Addr<T>>,
-    ) {
+    pub fn update(&mut self, ctx: &egui::Context, state: &mut AppState) {
         egui_extras::install_image_loaders(ctx);
 
-        self.render_ui(ctx, state, observation_loader_addr);
+        self.render_ui(ctx, state);
 
         if state.show_login_modal {
             self.show_login_modal(ctx, state);
         }
     }
 
-    fn render_ui(
-        &mut self,
-        ctx: &egui::Context,
-        state: &mut AppState,
-        observation_loader_addr: &Option<Addr<T>>,
-    ) {
+    fn render_ui(&mut self, ctx: &egui::Context, state: &mut AppState) {
         self.panels.top.show(
             ctx,
             state.is_authenticated,
@@ -109,19 +97,14 @@ impl<T: Actor> Ui<T> {
             });
 
         match state.current_view {
-            AppView::Identify => self.render_identify_view(ctx, state, observation_loader_addr),
+            AppView::Identify => self.render_identify_view(ctx, state),
             AppView::Observations => self.render_observations_view(ctx),
             AppView::Users => self.render_users_view(ctx),
             AppView::Taxa => self.render_taxa_view(ctx),
         }
     }
 
-    fn render_identify_view(
-        &mut self,
-        ctx: &egui::Context,
-        state: &AppState,
-        observation_loader_addr: &Option<Addr<T>>,
-    ) {
+    fn render_identify_view(&mut self, ctx: &egui::Context, state: &AppState) {
         self.views.identify.show(
             ctx,
             &state.results,
@@ -129,7 +112,6 @@ impl<T: Actor> Ui<T> {
             &state.taxa_store,
             &self.tx_app_message,
             state.loaded_geohashes,
-            observation_loader_addr.as_ref(),
         );
     }
 

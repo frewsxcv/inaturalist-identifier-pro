@@ -131,4 +131,5 @@ pub enum AppMessage {
     Authenticated(String),
     AuthError(String),
     InitiateLogin,
+    StartLoadingObservations,
 }

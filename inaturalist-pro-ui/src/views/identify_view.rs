@@ -1,5 +1,4 @@
 use crate::panels::{DetailsPanel, IdentificationPanel, ObservationGalleryPanel};
-use actix::{Actor, Addr};
 use egui::RichText;
 use inaturalist_pro_core::{AppMessage, QueryResult, TaxaStore};
 
@@ -22,7 +21,7 @@ impl Default for IdentifyView {
 }
 
 impl IdentifyView {
-    pub fn show<T: Actor>(
+    pub fn show(
         &mut self,
         ctx: &egui::Context,
         results: &[QueryResult],
@@ -30,16 +29,10 @@ impl IdentifyView {
         taxa_store: &TaxaStore,
         tx_app_message: &tokio::sync::mpsc::UnboundedSender<AppMessage>,
         loaded_geohashes: usize,
-        observation_loader_addr: Option<&Addr<T>>,
     ) {
         // Show loading screen if no results yet
         if results.is_empty() {
-            self.show_loading_screen(
-                ctx,
-                loaded_geohashes,
-                tx_app_message,
-                observation_loader_addr,
-            );
+            self.show_loading_screen(ctx, loaded_geohashes, tx_app_message);
             return;
         }
 
@@ -58,12 +51,11 @@ impl IdentifyView {
         self.details_panel.show(ctx, current_observation);
     }
 
-    fn show_loading_screen<T: Actor>(
+    fn show_loading_screen(
         &mut self,
         ctx: &egui::Context,
         loaded_geohashes: usize,
-        _tx_app_message: &tokio::sync::mpsc::UnboundedSender<AppMessage>,
-        observation_loader_addr: Option<&Addr<T>>,
+        tx_app_message: &tokio::sync::mpsc::UnboundedSender<AppMessage>,
     ) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
@@ -80,8 +72,7 @@ impl IdentifyView {
 
                     if ui.button("▶ Start Loading Observations").clicked() {
                         self.loading_started = true;
-                        // Note: The StartLoadingMessage would need to be sent from the parent
-                        // since we don't have access to the concrete actor type here
+                        let _ = tx_app_message.send(AppMessage::StartLoadingObservations);
                     }
                 } else if loaded_geohashes == 0 {
                     ui.spinner();

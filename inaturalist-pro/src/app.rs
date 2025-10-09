@@ -2,7 +2,8 @@ use actix::{Actor, SystemService};
 use inaturalist::models::{Observation, ShowTaxon};
 use inaturalist_oauth::{Authenticator, PkceVerifier};
 use inaturalist_pro_actors::{
-    BuildTaxonTreeMessage, ExchangeCode, ObservationLoaderActor, TaxonTreeBuilderActor,
+    BuildTaxonTreeMessage, ExchangeCode, ObservationLoaderActor, StartLoadingMessage,
+    TaxonTreeBuilderActor,
 };
 use inaturalist_pro_core::{taxon_tree, AppMessage, AppState, QueryResult, TaxaStore};
 use inaturalist_pro_ui::Ui;
@@ -20,7 +21,7 @@ pub(crate) struct App {
     pub client_secret: Option<String>,
     pub pkce_verifier: Option<PkceVerifier>,
     pub state: AppState,
-    pub ui: Ui<ObservationLoaderActor>,
+    pub ui: Ui,
 }
 
 impl Default for App {
@@ -29,7 +30,7 @@ impl Default for App {
 
         let oauth_addr = inaturalist_pro_actors::OauthActor::new(tx_app_message.clone()).start();
 
-        let ui = Ui::<ObservationLoaderActor>::new(tx_app_message.clone());
+        let ui = Ui::new(tx_app_message.clone());
 
         Self {
             tx_app_message,
@@ -49,8 +50,7 @@ impl Default for App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.process_messages();
-        self.ui
-            .update(ctx, &mut self.state, &self.observation_loader_addr);
+        self.ui.update(ctx, &mut self.state);
     }
 }
 
@@ -168,12 +168,12 @@ impl<'a> MessageHandler<'a> {
         observation: &Observation,
         scores: Vec<inaturalist_fetch::ComputerVisionObservationScore>,
     ) {
-        TaxonTreeBuilderActor::from_registry()
-            .try_send(BuildTaxonTreeMessage {
-                observation_id: observation.id.unwrap(),
-                scores,
-            })
-            .unwrap();
+        if let Err(e) = TaxonTreeBuilderActor::from_registry().try_send(BuildTaxonTreeMessage {
+            observation_id: observation.id.unwrap(),
+            scores,
+        }) {
+            tracing::warn!("Failed to send BuildTaxonTreeMessage: {}", e);
+        }
     }
 }
 
@@ -186,7 +186,8 @@ impl App {
                 | AppMessage::ObservationLoaded(_)
                 | AppMessage::ComputerVisionScoreLoaded(_, _)
                 | AppMessage::TaxonTree { .. }
-                | AppMessage::SkipCurrentObservation => {
+                | AppMessage::SkipCurrentObservation
+                | AppMessage::StartLoadingObservations => {
                     // Handle non-auth messages with MessageHandler
                     let mut handler = MessageHandler::new(&mut self.state);
                     match message {
@@ -205,6 +206,11 @@ impl App {
                             handler.handle_taxon_tree(observation_id, taxon_tree);
                         }
                         AppMessage::SkipCurrentObservation => handler.handle_skip_observation(),
+                        AppMessage::StartLoadingObservations => {
+                            if let Some(addr) = &self.observation_loader_addr {
+                                addr.do_send(StartLoadingMessage);
+                            }
+                        }
                         _ => {}
                     }
                 }
