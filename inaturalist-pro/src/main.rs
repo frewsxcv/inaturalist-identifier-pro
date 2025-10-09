@@ -52,6 +52,9 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let observation_request = CurOperation::request();
     let observation_soft_limit = fetch_soft_limit().clone();
 
+    // Create shared counter for tracking active API requests
+    let active_requests = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+
     let addr = TaxonTreeBuilderActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
         let api_token = api_token.clone().unwrap_or_default();
@@ -65,10 +68,12 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let addr = ObservationProcessorActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
         let api_token = api_token.clone().unwrap_or_default();
+        let active_requests = active_requests.clone();
         {
             |_ctx| ObservationProcessorActor {
                 tx_app_message,
                 api_token,
+                active_requests,
             }
         }
     });
@@ -87,6 +92,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     let api_loader_addr = ApiLoaderActor::start_in_arbiter(&Arbiter::new().handle(), {
         let tx_app_message = tx_app_message.clone();
         let api_token = api_token.clone().unwrap_or_default();
+        let active_requests = active_requests.clone();
         |_ctx| ApiLoaderActor {
             tx_app_message,
             api_token,
@@ -94,6 +100,7 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             taxa_loaded: Default::default(),
             pending_requests: Default::default(),
             is_processing: false,
+            active_requests,
         }
     });
     SystemRegistry::set(api_loader_addr.clone());

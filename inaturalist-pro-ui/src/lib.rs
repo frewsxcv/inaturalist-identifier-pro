@@ -78,6 +78,7 @@ impl Ui {
             &mut state.show_login_modal,
             &mut state.auth_status_message,
             &state.current_user,
+            state.pending_api_requests,
         );
 
         egui::SidePanel::left("navigation_panel")

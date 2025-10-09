@@ -11,6 +11,7 @@ impl TopPanel {
         show_login_modal: &mut bool,
         auth_status_message: &mut Option<String>,
         current_user: &Option<User>,
+        pending_api_requests: usize,
     ) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
@@ -20,6 +21,21 @@ impl TopPanel {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
+
+                // Show API request loading spinner
+                if pending_api_requests > 0 {
+                    ui.horizontal(|ui| {
+                        ui.spinner();
+                        ui.label(
+                            egui::RichText::new(format!(
+                                "{} API requests queued",
+                                pending_api_requests
+                            ))
+                            .color(egui::Color32::from_rgb(100, 150, 255))
+                            .italics(),
+                        );
+                    });
+                }
 
                 // Spacer to push profile button to the right
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

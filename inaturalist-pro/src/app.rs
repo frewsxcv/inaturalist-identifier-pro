@@ -3,7 +3,7 @@ use inaturalist::models::{Observation, ShowTaxon};
 use inaturalist_oauth::{Authenticator, PkceVerifier};
 use inaturalist_pro_actors::{
     ApiFetchCurrentUserMessage, ApiLoaderActor, BuildTaxonTreeMessage, ExchangeCode,
-    StartLoadingObservationsMessage, TaxonTreeBuilderActor,
+    GetPendingRequestsCountMessage, StartLoadingObservationsMessage, TaxonTreeBuilderActor,
 };
 use inaturalist_pro_core::{taxon_tree, AppMessage, AppState, QueryResult};
 use inaturalist_pro_ui::Ui;
@@ -57,6 +57,14 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.process_messages();
         self.ui.update(ctx, &mut self.state);
+
+        // Periodically poll for pending API requests count
+        if let Some(addr) = &self.api_loader_addr {
+            addr.do_send(GetPendingRequestsCountMessage);
+        }
+
+        // Request repaint to keep polling
+        ctx.request_repaint_after(std::time::Duration::from_millis(500));
     }
 }
 
@@ -257,6 +265,9 @@ impl App {
                         user.login.as_ref().map(|s| s.as_str()).unwrap_or("unknown")
                     );
                     self.state.current_user = Some(user);
+                }
+                AppMessage::PendingRequestsCount(count) => {
+                    self.state.pending_api_requests = count;
                 }
             }
         }

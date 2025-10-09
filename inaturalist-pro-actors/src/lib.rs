@@ -7,8 +7,8 @@ pub mod taxon_tree_builder_actor;
 // Consolidated API loader actor
 pub use api_loader_actor::{
     ApiLoaderActor, FetchCurrentUserMessage as ApiFetchCurrentUserMessage,
-    FetchTaxaMessage as ApiFetchTaxaMessage, LoadTaxonMessage as ApiLoadTaxonMessage,
-    StartLoadingObservationsMessage,
+    FetchTaxaMessage as ApiFetchTaxaMessage, GetPendingRequestsCountMessage,
+    LoadTaxonMessage as ApiLoadTaxonMessage, StartLoadingObservationsMessage,
 };
 
 pub use identify_actor::IdentifyActor;

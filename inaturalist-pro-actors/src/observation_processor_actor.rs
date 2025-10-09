@@ -6,6 +6,7 @@ use tokio::sync::mpsc::UnboundedSender;
 pub struct ObservationProcessorActor {
     pub tx_app_message: UnboundedSender<AppMessage>,
     pub api_token: String,
+    pub active_requests: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl Default for ObservationProcessorActor {
@@ -40,9 +41,13 @@ impl Handler<ProcessObservationMessage> for ObservationProcessorActor {
         let tx_app_message = self.tx_app_message.clone();
         let api_token = self.api_token.clone();
         let observation = msg.observation;
+        let active_requests = self.active_requests.clone();
 
         // Send the observation loaded message
         let _ = tx_app_message.send(AppMessage::ObservationLoaded(Box::new(observation.clone())));
+
+        // Increment active requests counter for CV fetch
+        active_requests.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
         // Spawn task to fetch computer vision scores
         actix::spawn(async move {
@@ -73,6 +78,9 @@ impl Handler<ProcessObservationMessage> for ObservationProcessorActor {
                     );
                 }
             }
+
+            // Decrement active requests counter
+            active_requests.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
         });
     }
 }

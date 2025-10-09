@@ -88,6 +88,7 @@ pub struct QueryResult {
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub loaded_geohashes: usize,
+    pub pending_api_requests: usize,
     pub results: Vec<QueryResult>,
     pub taxa_store: TaxaStore,
     pub current_observation_id: Option<ObservationId>,
@@ -102,6 +103,7 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             loaded_geohashes: 0,
+            pending_api_requests: 0,
             results: Vec::new(),
             taxa_store: TaxaStore::default(),
             current_observation_id: None,
@@ -135,4 +137,5 @@ pub enum AppMessage {
     InitiateLogin,
     StartLoadingObservations,
     UserLoaded(User),
+    PendingRequestsCount(usize),
 }

@@ -23,6 +23,9 @@ pub struct ApiLoaderActor {
 
     // Flag to track if we're currently processing
     pub is_processing: bool,
+
+    // Counter for active API requests
+    pub active_requests: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl Default for ApiLoaderActor {
@@ -89,6 +92,10 @@ pub struct StartLoadingObservationsMessage {
 #[rtype(result = "()")]
 struct ProcessNextRequestMessage;
 
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct GetPendingRequestsCountMessage;
+
 // ============================================================================
 // Message Handlers
 // ============================================================================
@@ -97,7 +104,13 @@ impl Handler<LoadTaxonMessage> for ApiLoaderActor {
     type Result = ();
 
     fn handle(&mut self, msg: LoadTaxonMessage, ctx: &mut Self::Context) -> Self::Result {
-        self.taxa_to_load.insert(msg.0);
+        // Only increment if this is a new taxon we haven't seen before
+        if !self.taxa_to_load.contains(&msg.0) && !self.taxa_loaded.contains(&msg.0) {
+            self.taxa_to_load.insert(msg.0);
+            // Increment counter for this new taxon request
+            self.active_requests
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
         // Trigger taxa fetch if we have enough or after a delay
         ctx.notify_later(FetchTaxaMessage, std::time::Duration::from_millis(100));
     }
@@ -120,6 +133,8 @@ impl Handler<FetchTaxaMessage> for ApiLoaderActor {
 
         let tx_app_message = self.tx_app_message.clone();
         let api_token = self.api_token.clone();
+        let active_requests = self.active_requests.clone();
+        let num_taxa = taxa_ids_to_fetch.len();
 
         // Mark as loaded immediately to prevent duplicate requests
         for &taxon_id in &taxa_ids_to_fetch {
@@ -138,6 +153,8 @@ impl Handler<FetchTaxaMessage> for ApiLoaderActor {
                         tracing::error!("Failed to fetch taxa: {:?}", e);
                     }
                 }
+                // Decrement active requests counter by the number of taxa we fetched
+                active_requests.fetch_sub(num_taxa, std::sync::atomic::Ordering::SeqCst);
             })
             .into_actor(self),
         );
@@ -150,6 +167,10 @@ impl Handler<FetchCurrentUserMessage> for ApiLoaderActor {
     fn handle(&mut self, _msg: FetchCurrentUserMessage, ctx: &mut Self::Context) -> Self::Result {
         let tx_app_message = self.tx_app_message.clone();
         let api_token = self.api_token.clone();
+        let active_requests = self.active_requests.clone();
+
+        // Increment active requests counter
+        active_requests.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
         ctx.wait(
             Box::pin(async move {
@@ -161,6 +182,8 @@ impl Handler<FetchCurrentUserMessage> for ApiLoaderActor {
                         tracing::error!("Failed to fetch current user: {:?}", e);
                     }
                 }
+                // Decrement active requests counter
+                active_requests.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
             })
             .into_actor(self),
         );
@@ -177,8 +200,11 @@ impl Handler<StartLoadingObservationsMessage> for ApiLoaderActor {
         let api_token = self.api_token.clone();
         let request = msg.request;
         let soft_limit = msg.soft_limit;
+        let active_requests = self.active_requests.clone();
 
         let t = async move {
+            // Increment active requests counter for the batch
+            active_requests.fetch_add(grid.0.len(), std::sync::atomic::Ordering::SeqCst);
             for (i, geohash) in grid.clone().0.into_iter().enumerate() {
                 tracing::info!(
                     "Fetch observations for geohash {} ({} / {})",
@@ -213,6 +239,9 @@ impl Handler<StartLoadingObservationsMessage> for ApiLoaderActor {
                         continue;
                     }
                 }
+
+                // Decrement for this geohash
+                active_requests.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
             }
 
             tracing::info!("Finished loading observations");
@@ -233,5 +262,25 @@ impl Handler<ProcessNextRequestMessage> for ApiLoaderActor {
         // For future enhancement: implement request queue processing
         // This would allow more sophisticated rate limiting and prioritization
         self.is_processing = false;
+    }
+}
+
+impl Handler<GetPendingRequestsCountMessage> for ApiLoaderActor {
+    type Result = ();
+
+    fn handle(
+        &mut self,
+        _msg: GetPendingRequestsCountMessage,
+        _ctx: &mut Self::Context,
+    ) -> Self::Result {
+        let count = self
+            .active_requests
+            .load(std::sync::atomic::Ordering::SeqCst);
+        if let Err(e) = self
+            .tx_app_message
+            .send(AppMessage::PendingRequestsCount(count))
+        {
+            tracing::warn!("Failed to send pending requests count: {}", e);
+        }
     }
 }
